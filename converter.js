@@ -123,7 +123,6 @@ function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0
 
         const logF0 = logFb + pT + aT;
         const f0Hz = Math.exp(logF0);
-        results.append = { mora: item.mora, f0Hz: f0Hz };
         results.push({ mora: item.mora, f0Hz: f0Hz });
     });
 
@@ -280,12 +279,12 @@ function parseDialogueLines(data) {
                     const text = sanitizeText(rawText) || `Line_${String(idx + 1).padStart(4, "0")}`;
                     const speaker = sanitizeText(tb.speakerName || tb.speaker_name || "");
                     const prosody = tb.prosodyDetail || tb.accent_phrases || [];
-                    const accentPhrases = normalizeAccentPhrases(prosody);
+                    const accentPhrases = normalizeAccentPhrases(prosody) || [];
 
                     lines.push({
                         speaker_name: speaker,
                         text: text,
-                        accent_phrases: accentPhrases,
+                        accent_phrases: accentPhrases.length > 0 ? accentPhrases : makeAccentPhrasesFromText(text),
                         pause_len: tb.pauseLength
                     });
                 }
@@ -371,8 +370,21 @@ function extractDialogueItem(item, idx) {
     return {
         speaker_name: speaker,
         text: text,
-        accent_phrases: normalizeAccentPhrases(accentPhrases)
+        accent_phrases: (() => {
+            const normalized = normalizeAccentPhrases(accentPhrases);
+            return normalized.length > 0 ? normalized : makeAccentPhrasesFromText(text);
+        })()
     };
+}
+
+// INI-format .cink files may contain only the entered text. Preserve that
+// dialogue rather than rejecting the project; each visible character becomes
+// a provisional mora and can still be edited in OpenUtau afterwards.
+function makeAccentPhrasesFromText(text) {
+    const moras = Array.from(text)
+        .filter(char => !/\s/.test(char))
+        .map(char => ({ text: char, pitch: null, accent: 0, phoneme: '' }));
+    return moras.length > 0 ? [{ moras }] : [];
 }
 
 /**

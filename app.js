@@ -109,8 +109,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const textDecoder = new TextDecoder('utf-8');
-        const jsonText = textDecoder.decode(arrayBuffer);
-        return JSON.parse(jsonText);
+        return parseCinkText(textDecoder.decode(arrayBuffer));
+    }
+
+    /**
+     * COEIROINK project files can be plain JSON, but older/exported projects
+     * may use an INI-like format beginning with [project].
+     */
+    function parseCinkText(source) {
+        const text = source.replace(/^\uFEFF/, '').trim();
+        if (!text) throw new Error('ファイルの内容が空です。');
+
+        try {
+            return JSON.parse(text);
+        } catch (jsonError) {
+            if (!/^\s*\[project\]/im.test(text)) {
+                throw new Error('JSONとして読み込めませんでした。COEIROINKの .cink ファイルを選択してください。');
+            }
+        }
+
+        const project = parseIniCink(text);
+        if (project.textBoxes.length === 0) {
+            throw new Error('COEIROINKプロジェクト内にセリフが見つかりませんでした。');
+        }
+        return project;
+    }
+
+    function parseIniCink(text) {
+        const project = { projectFileVersion: 'ini', textBoxes: [] };
+        let sectionName = '';
+        let fields = {};
+
+        const saveSection = () => {
+            if (!/^(textbox|text_box|line|audio)/i.test(sectionName) || !fields.text) return;
+            const textBox = { ...fields };
+            ['prosodyDetail', 'accent_phrases', 'audio_query', 'query'].forEach(key => {
+                if (typeof textBox[key] !== 'string') return;
+                try { textBox[key] = JSON.parse(textBox[key]); } catch (_) { /* Keep plain values as-is. */ }
+            });
+            project.textBoxes.push(textBox);
+        };
+
+        text.split(/\r?\n/).forEach(rawLine => {
+            const line = rawLine.trim();
+            if (!line || line.startsWith(';') || line.startsWith('#')) return;
+            const header = line.match(/^\[([^\]]+)\]$/);
+            if (header) {
+                saveSection();
+                sectionName = header[1].trim();
+                fields = {};
+                return;
+            }
+            const match = line.match(/^([^=:#]+)\s*[=:]\s*(.*)$/);
+            if (!match) return;
+            const key = match[1].trim();
+            let value = match[2].trim();
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1);
+            }
+            fields[key] = value;
+        });
+        saveSection();
+        return project;
     }
 
     function renderPreview(result) {
