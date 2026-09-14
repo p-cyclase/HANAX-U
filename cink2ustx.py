@@ -172,7 +172,7 @@ DEFAULT_EXPRESSIONS = {
         "type": "Numerical",
         "min": 0,
         "max": 100,
-        "default_value": 86,
+        "default_value": 50,
         "is_flag": True,
         "flag": "P"
     },
@@ -424,7 +424,7 @@ def fujisaki_accent_response(t: float, beta: float = 20.0, gamma: float = 0.9) -
 
 def compute_fujisaki_pitches_for_line(line: Dict[str, Any], bpm: int = 180,
                                      alpha: float = 3.0, beta: float = 20.0,
-                                     fb_hz: float = 130.0) -> List[Tuple[Dict[str, Any], float]]:
+                                     fb_hz: float = 150.0) -> List[Tuple[Dict[str, Any], float]]:
     """
     Computes Fujisaki model fundamental frequency F0(t) for each mora in a dialogue line.
     - Phrase commands (A_p = 0.35) are triggered at sentence start and after punctuation ("、") or phrase pauses.
@@ -530,9 +530,9 @@ def quantize_fujisaki_pitches(f0_list: List[float]) -> Dict[float, int]:
 # Note Generation with Fujisaki Pitch Model & Special Rest Corrections
 # ==============================================================================
 
-def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80, 
+def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 60,
                              bpm: int = 180, alpha: float = 3.0, beta: float = 20.0,
-                             fb_hz: float = 130.0) -> List[Dict[str, Any]]:
+                             fb_hz: float = 150.0) -> List[Dict[str, Any]]:
     """
     Expands accent phrases into note sequence using Fujisaki Pitch Model:
     - Prepend 1 mora (240 ticks) R rest note at track head, Tone = Low (58).
@@ -576,7 +576,7 @@ def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80,
             accent = mora.get("accent", 0)
             
             # Retrieve Fujisaki pitch for this mora
-            f0 = f0_values[fujisaki_idx] if fujisaki_idx < len(f0_values) else 130.0
+            f0 = f0_values[fujisaki_idx] if fujisaki_idx < len(f0_values) else fb_hz
             fujisaki_idx += 1
             
             if text in SOKUON_CHARS:
@@ -647,7 +647,7 @@ def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80,
     return notes
 
 def create_note_object(position: int, duration: int, tone: int, lyric: str, 
-                       prev_tone: Optional[int], portamento_length: int = 80) -> Dict[str, Any]:
+                       prev_tone: Optional[int], portamento_length: int = 60) -> Dict[str, Any]:
     """Creates an OpenUtau note dictionary matching official schema."""
     if not lyric or lyric == '\ufffd':
         lyric = "R"
@@ -691,8 +691,8 @@ def create_note_object(position: int, duration: int, tone: int, lyric: str,
         "phoneme_overrides": []
     }
 
-def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 80, bpm: int = 180,
-                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 130.0) -> Dict[str, Any]:
+def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int = 180,
+                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0) -> Dict[str, Any]:
     """Constructs the complete OpenUtau .ustx project dictionary matching official schema."""
     lines = parse_dialogue_lines(cink_data)
     if not lines:
@@ -816,10 +816,10 @@ def main():
     parser.add_argument("input_path", help="Path to input .cink or .json file")
     parser.add_argument("output_path", nargs="?", help="Path to output .ustx file (optional)")
     parser.add_argument("--bpm", type=int, default=180, help="Tempo BPM (default: 180)")
-    parser.add_argument("--portamento", type=int, default=80, help="Portamento transition length in ticks (default: 80)")
+    parser.add_argument("--portamento", type=int, default=60, help="Portamento transition length in milliseconds (default: 60)")
     parser.add_argument("--alpha", type=float, default=3.0, help="Fujisaki alpha phrase decay parameter (default: 3.0)")
     parser.add_argument("--beta", type=float, default=20.0, help="Fujisaki beta accent rise parameter (default: 20.0)")
-    parser.add_argument("--fb", type=float, default=130.0, help="Fujisaki base frequency Fb in Hz (default: 130.0)")
+    parser.add_argument("--fb", type=float, default=150.0, help="Fujisaki base frequency Fb in Hz (default: 150.0)")
     
     args = parser.parse_args()
     

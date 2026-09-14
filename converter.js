@@ -28,7 +28,7 @@ const DEFAULT_EXPRESSIONS = {
     bre: { name: "breath", abbr: "bre", type: "Numerical", min: 0, max: 100, default_value: 0, is_flag: true, flag: "B" },
     brec: { name: "breathiness (curve)", abbr: "brec", type: "Curve", min: -100, max: 100, default_value: 0, is_flag: false, flag: "" },
     lpf: { name: "lowpass", abbr: "lpf", type: "Numerical", min: 0, max: 100, default_value: 0, is_flag: true, flag: "H" },
-    norm: { name: "normalize", abbr: "norm", type: "Numerical", min: 0, max: 100, default_value: 86, is_flag: true, flag: "P" },
+    norm: { name: "normalize", abbr: "norm", type: "Numerical", min: 0, max: 100, default_value: 50, is_flag: true, flag: "P" },
     mod: { name: "modulation", abbr: "mod", type: "Numerical", min: 0, max: 100, default_value: 0, is_flag: false, flag: "" },
     "mod+": { name: "modulation plus", abbr: "mod+", type: "Numerical", min: 0, max: 100, default_value: 0, is_flag: false, flag: "" },
     alt: { name: "alternate", abbr: "alt", type: "Numerical", min: 0, max: 16, default_value: 0, is_flag: false, flag: "" },
@@ -64,7 +64,7 @@ function fujisakiAccentResponse(t, beta = 20.0, gamma = 0.9) {
 /**
  * Computes Fujisaki F0 fundamental frequency for each mora in line.
  */
-function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 130.0) {
+function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 150.0) {
     const accentPhrases = line.accent_phrases || [];
     const moraDurationSec = (60.0 / Number(bpm)) * 0.5;
 
@@ -170,11 +170,17 @@ function quantizeFujisakiPitches(f0List) {
  * Main conversion function for JS environment.
  */
 function convertCinkToUstx(cinkData, options = {}) {
-    const portamentoLength = options.portamentoLength !== undefined ? options.portamentoLength : 80;
     const bpm = options.bpm !== undefined ? options.bpm : 180;
+    // portamentoLength is retained only for callers of the former tick-based
+    // API; USTX pitch-point x values and the UI now use milliseconds.
+    const portamentoLengthMs = options.portamentoLengthMs !== undefined
+        ? options.portamentoLengthMs
+        : options.portamentoLength !== undefined
+            ? options.portamentoLength * 60000 / bpm / 480
+            : 60;
     const alpha = options.alpha !== undefined ? options.alpha : 3.0;
     const beta = options.beta !== undefined ? options.beta : 20.0;
-    const fbHz = options.fbHz !== undefined ? options.fbHz : 130.0;
+    const fbHz = options.fbHz !== undefined ? options.fbHz : 150.0;
 
     const lines = parseDialogueLines(cinkData);
 
@@ -204,7 +210,7 @@ function convertCinkToUstx(cinkData, options = {}) {
             voice_color_names: [""]
         });
 
-        const notes = buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, pitchStats);
+        const notes = buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, pitchStats);
         totalNotesCount += notes.length;
         const partDuration = notes.length > 0 ? (notes[notes.length - 1].position + notes[notes.length - 1].duration) : 0;
 
@@ -390,7 +396,7 @@ function makeAccentPhrasesFromText(text) {
 /**
  * Builds array of notes for a dialogue line using Fujisaki Model Pitch Engine.
  */
-function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, pitchStats) {
+function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, pitchStats) {
     const accentPhrases = line.accent_phrases || [];
     const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz);
     const f0Values = fujisakiResults.map(r => r.f0Hz);
@@ -417,7 +423,7 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
     // Keep the original low-start policy, but place the rest relative to the
     // first voiced note so it belongs to the same continuous contour.
     let prevRenderedMidi = chooseRestMidi("leading", null, nextVoicedMidi(0), hzToMidi(f0Values[0] || fbHz));
-    const leadingRest = createNoteObject(currentPos, MORA_TICKS, prevRenderedMidi, "R", null, portamentoLength);
+    const leadingRest = createNoteObject(currentPos, MORA_TICKS, prevRenderedMidi, "R", null, portamentoLengthMs);
     notes.push(leadingRest);
     currentPos += MORA_TICKS;
     prevRenderedMidi = leadingRest.tone;
@@ -468,7 +474,7 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
                 pitchStats.semitone++;
             }
 
-            const note = createNoteObject(currentPos, MORA_TICKS, midiPitch, lyric, prevRenderedMidi, portamentoLength);
+            const note = createNoteObject(currentPos, MORA_TICKS, midiPitch, lyric, prevRenderedMidi, portamentoLengthMs);
             notes.push(note);
             currentPos += MORA_TICKS;
             prevRenderedMidi = Math.round(midiPitch);
@@ -478,7 +484,7 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
         const pauseSec = ap.pause_sec || 0;
         if ((pauseSec > 0.05 || ap.pause_mora) && apIdx < accentPhrases.length - 1) {
             const restMidi = chooseRestMidi(prevMoraAccented ? "high" : "low", prevSungMidi, nextVoicedMidi(fujisakiIdx), prevRenderedMidi);
-            const restNote = createNoteObject(currentPos, MORA_TICKS, restMidi, "R", prevRenderedMidi, portamentoLength);
+            const restNote = createNoteObject(currentPos, MORA_TICKS, restMidi, "R", prevRenderedMidi, portamentoLengthMs);
             notes.push(restNote);
             currentPos += MORA_TICKS;
             prevRenderedMidi = Math.round(restMidi);
@@ -492,7 +498,7 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
         // Do not duplicate R note
     } else {
         const endingMidi = chooseRestMidi("low", prevSungMidi, null, prevRenderedMidi);
-        const endingRest = createNoteObject(currentPos, MORA_TICKS, endingMidi, "R", prevRenderedMidi, portamentoLength);
+        const endingRest = createNoteObject(currentPos, MORA_TICKS, endingMidi, "R", prevRenderedMidi, portamentoLengthMs);
         notes.push(endingRest);
         pitchStats.rest++;
     }
@@ -521,14 +527,15 @@ function chooseRestMidi(policy, previousMidi, nextMidi, fallbackMidi) {
     return Math.min(centre - 0.35, spanLow + 0.1);
 }
 
-function createNoteObject(position, duration, midiPitch, lyric, previousMidi, portamentoLength) {
+function createNoteObject(position, duration, midiPitch, lyric, previousMidi, portamentoLengthMs) {
     if (!lyric || lyric === '\ufffd') {
         lyric = "R";
     }
 
     const tone = Math.round(midiPitch);
     // The Fujisaki result is quantised to the nearest semitone for each note.
-    // Pitch points retain only the note-to-note portamento transition.
+    // USTX pitch-point x coordinates are milliseconds. Pitch points retain
+    // only the note-to-note portamento transition.
     const yTarget = 0;
     const yStart = previousMidi !== null ? (previousMidi - tone) * 10 : yTarget;
     return {
@@ -539,17 +546,17 @@ function createNoteObject(position, duration, midiPitch, lyric, previousMidi, po
         pitch: {
             data: [
                 {
-                    x: -portamentoLength,
+                    x: -portamentoLengthMs,
                     y: yStart,
                     shape: "io"
                 },
                 {
-                    x: portamentoLength,
+                    x: portamentoLengthMs,
                     y: yTarget,
                     shape: "io"
                 }
             ],
-            snap_first: false
+            snap_first: true
         },
         vibrato: {
             length: 0,

@@ -40,11 +40,11 @@
             <div class="options-bar" aria-label="変換設定">
                 <div class="option-group">
                     <div class="option-copy"><label for="bpmInput">BPM</label><p>変換後の楽曲テンポです。1拍あたりの速さを指定します。</p></div>
-                    <input type="number" id="bpmInput" value="180" min="1" max="999" step="1">
+                    <input type="number" id="bpmInput" value="200" min="1" max="999" step="1">
                 </div>
                 <div class="option-group">
-                    <div class="option-copy"><label for="portamentoInput">ポルタメント長（ticks）</label><p>ノートの切り替わりを滑らかにつなぐ長さです。0で無効になります。</p></div>
-                    <input type="number" id="portamentoInput" value="80" min="0" max="240" step="5">
+                    <div class="option-copy"><label for="portamentoInput">ポルタメント長（ms）</label><p>ノートの切り替わりを滑らかにつなぐ長さです。ミリ秒単位で指定します。0で無効になります。</p></div>
+                    <input type="number" id="portamentoInput" value="75" min="0" max="500" step="5">
                 </div>
                 <div class="option-group">
                     <div class="option-copy"><label for="alphaInput">フレーズ減衰（α）</label><p>文節全体の音高変化が落ち着く速さです。大きいほど早く減衰します。</p></div>
@@ -55,8 +55,8 @@
                     <input type="number" id="betaInput" value="20.0" min="5.0" max="50.0" step="1.0">
                 </div>
                 <div class="option-group">
-                    <div class="option-copy"><label for="fbInput">基底周波数（Fb Hz）</label><p>藤崎モデルの基準となる声の高さです。全体の音域を上下させます。目安は男性ボイスで100〜150 Hz、女性ボイスで180〜240 Hzです。</p></div>
-                    <input type="number" id="fbInput" value="130" min="50" max="400" step="5">
+                    <div class="option-copy"><label for="fbInput">基底周波数（Fb Hz）</label><p>藤崎モデルの基準となる声の高さです。全体の音域を上下させます。目安は男性ボイスで100 Hz、女性ボイスで180 Hzです。</p></div>
+                    <input type="number" id="fbInput" value="150" min="50" max="400" step="5">
                 </div>
                 <div class="action-group">
                     <button id="convertBtn" class="btn-primary" disabled>
@@ -85,7 +85,7 @@
                     <div class="stat-label">総ノート (モーラ + R)</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value" id="statF0Range">130 - 130 Hz</div>
+                    <div class="stat-value" id="statF0Range">150 - 150 Hz</div>
                     <div class="stat-label">藤崎モデル F0 範囲</div>
                 </div>
                 <div class="stat-box">

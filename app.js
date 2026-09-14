@@ -70,13 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function processFile(file) {
         try {
             const rawData = await readCinkFile(file);
-            const portamentoLength = parseInt(portamentoInput.value, 10) || 80;
-            const bpm = parseInt(bpmInput.value, 10) || 180;
+            const portamentoLengthMs = parseInt(portamentoInput.value, 10) || 60;
+            const bpm = parseInt(bpmInput.value, 10) || 200;
             const alpha = parseFloat(alphaInput.value) || 3.0;
             const beta = parseFloat(betaInput.value) || 20.0;
-            const fbHz = parseFloat(fbInput.value) || 130.0;
+            const fbHz = parseFloat(fbInput.value) || 150.0;
 
-            convertedResult = convertCinkToUstx(rawData, { portamentoLength, bpm, alpha, beta, fbHz });
+            convertedResult = convertCinkToUstx(rawData, { portamentoLengthMs, bpm, alpha, beta, fbHz });
             renderPreview(convertedResult);
 
             downloadBtn.disabled = false;
@@ -178,8 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         statLines.textContent = stats.lineCount;
         statNotes.textContent = stats.totalNotes;
-        const minF = stats.pitchStats.f0Min < 999 ? stats.pitchStats.f0Min : 130;
-        const maxF = stats.pitchStats.f0Max > 0 ? stats.pitchStats.f0Max : 130;
+        const minF = stats.pitchStats.f0Min < 999 ? stats.pitchStats.f0Min : 150;
+        const maxF = stats.pitchStats.f0Max > 0 ? stats.pitchStats.f0Max : 150;
         statF0Range.textContent = `${minF} - ${maxF} Hz`;
         statPitches.textContent = `${stats.pitchStats.semitone} notes`;
 
