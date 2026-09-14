@@ -1,0 +1,106 @@
+[
+  {
+    "text": "こんにちは、COEIROINKからOpenUtauへの変換テストです。",
+    "accent_phrases": [
+      {
+        "moras": [
+          {"text": "コ", "pitch": 5.2},
+          {"text": "ン", "pitch": 5.4},
+          {"text": "ニ", "pitch": 6.8},
+          {"text": "チ", "pitch": 6.6},
+          {"text": "ワ", "pitch": 4.1}
+        ],
+        "pause_sec": 0.25
+      },
+      {
+        "moras": [
+          {"text": "コ", "pitch": 5.0},
+          {"text": "エ", "pitch": 5.5},
+          {"text": "イ", "pitch": 6.0},
+          {"text": "ロ", "pitch": 6.2},
+          {"text": "イ", "pitch": 6.1},
+          {"text": "ン", "pitch": 5.9},
+          {"text": "ク", "pitch": 4.8},
+          {"text": "カ", "pitch": 5.1},
+          {"text": "ラ", "pitch": 5.2}
+        ],
+        "pause_sec": 0.0
+      },
+      {
+        "moras": [
+          {"text": "オ", "pitch": 5.5},
+          {"text": "ー", "pitch": 5.6},
+          {"text": "プ", "pitch": 6.4},
+          {"text": "ン", "pitch": 6.3},
+          {"text": "ウ", "pitch": 5.7},
+          {"text": "タ", "pitch": 5.8},
+          {"text": "ウ", "pitch": 5.6},
+          {"text": "エ", "pitch": 5.2},
+          {"text": "ノ", "pitch": 5.1}
+        ],
+        "pause_sec": 0.0
+      },
+      {
+        "moras": [
+          {"text": "ヘ", "pitch": 5.2},
+          {"text": "ン", "pitch": 5.3},
+          {"text": "カ", "pitch": 6.5},
+          {"text": "ン", "pitch": 6.4},
+          {"text": "テ", "pitch": 5.8},
+          {"text": "ス", "pitch": 5.7},
+          {"text": "ト", "pitch": 5.5},
+          {"text": "デ", "pitch": 5.1},
+          {"text": "ス", "pitch": 4.0}
+        ],
+        "pause_sec": 0.0
+      }
+    ]
+  },
+  {
+    "text": "促音とピッチの変化もバッチリ対応していますっ！",
+    "accent_phrases": [
+      {
+        "moras": [
+          {"text": "ソ", "pitch": 5.1},
+          {"text": "ク", "pitch": 6.2},
+          {"text": "オ", "pitch": 6.5},
+          {"text": "ン", "pitch": 6.0},
+          {"text": "ト", "pitch": 5.2}
+        ],
+        "pause_sec": 0.1
+      },
+      {
+        "moras": [
+          {"text": "ピ", "pitch": 5.5},
+          {"text": "ッ", "pitch": 0.0},
+          {"text": "チ", "pitch": 6.7},
+          {"text": "ノ", "pitch": 5.5},
+          {"text": "ヘ", "pitch": 5.3},
+          {"text": "ン", "pitch": 5.4},
+          {"text": "カ", "pitch": 6.4},
+          {"text": "モ", "pitch": 5.8}
+        ],
+        "pause_sec": 0.15
+      },
+      {
+        "moras": [
+          {"text": "バ", "pitch": 5.6},
+          {"text": "ッ", "pitch": 0.0},
+          {"text": "チ", "pitch": 6.9},
+          {"text": "リ", "pitch": 6.5},
+          {"text": "タ", "pitch": 5.6},
+          {"text": "イ", "pitch": 5.5},
+          {"text": "オ", "pitch": 5.4},
+          {"text": "ウ", "pitch": 5.2},
+          {"text": "シ", "pitch": 5.0},
+          {"text": "テ", "pitch": 5.1},
+          {"text": "イ", "pitch": 5.2},
+          {"text": "マ", "pitch": 5.3},
+          {"text": "ス", "pitch": 4.8},
+          {"text": "っ", "pitch": 0.0}
+        ],
+        "pause_sec": 0.0
+      }
+    ]
+  }
+]

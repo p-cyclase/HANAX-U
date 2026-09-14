@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HANAX-U コンバータ (COEIROINK → OpenUTAU)</title>
+    <meta name="description" content="COEIROINKのプロジェクトファイル（.cink）をOpenUTAUのプロジェクトファイル（.ustx）に自動変換するツール。トラック分割、8分音符ノート展開、3段階ピッチ量子化、ポルタメント補正対応。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- External Libraries for Zip & YAML support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>HANAX-U コンバータ</h1>
+            <p>COEIROINKプロジェクト（.cink / JSON）を取り込み、OpenUTAU用の .ustx ファイルに自動変換します。</p>
+            <div class="badge-bar">
+                <span class="badge"><span class="badge-dot low"></span>低: Tone 58 (A#3)</span>
+                <span class="badge"><span class="badge-dot mid"></span>中: Tone 60 (C4)</span>
+                <span class="badge"><span class="badge-dot high"></span>高: Tone 63 (D#4)</span>
+                <span class="badge"><span class="badge-dot rest"></span>休符: R (頭/促音/句読点/文末)</span>
+                <span class="badge">⏱ 8分音符 (240 ticks)</span>
+            </div>
+        </header>
+
+        <!-- Main Converter Card -->
+        <main class="glass-card">
+            <div class="dropzone" id="dropzone">
+                <div class="dropzone-icon">📁</div>
+                <h3>.cink または JSON ファイルをドラッグ＆ドロップ</h3>
+                <p>またはクリックしてファイルを選択してください</p>
+                <input type="file" id="fileInput" class="file-input" accept=".cink,.json,.zip">
+            </div>
+
+            <div class="options-bar">
+                <div class="option-group">
+                    <label for="bpmInput">BPM:</label>
+                    <input type="number" id="bpmInput" value="180" min="1" max="999" step="1">
+                </div>
+                <div class="option-group">
+                    <label for="portamentoInput">ポルタメント長 (ticks):</label>
+                    <input type="number" id="portamentoInput" value="80" min="0" max="240" step="5">
+                </div>
+                <div class="action-group">
+                    <button id="convertBtn" class="btn-primary" disabled>
+                        <span>⚡ 変換を実行</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Preview Section -->
+        <section id="previewSection" class="glass-card preview-section">
+            <div class="preview-header">
+                <h2>変換結果プレビュー</h2>
+                <button id="downloadBtn" class="btn-primary" disabled>
+                    <span>💾 .ustx をダウンロード</span>
+                </button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="statLines">0</div>
+                    <div class="stat-label">総トラック (セリフ数)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statNotes">0</div>
+                    <div class="stat-label">総ノート (モーラ + R)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statPitches">L:0 | M:0 | H:0</div>
+                    <div class="stat-label">ピッチ量子化分布</div>
+                </div>
+            </div>
+
+            <div class="tracks-container" id="tracksContainer">
+                <!-- Dynamically populated tracks -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Converter Logic -->
+    <script src="converter.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
