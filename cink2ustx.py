@@ -5,21 +5,27 @@ cink2ustx.py - HANAX-U コンバータ (COEIROINK .cink -> OpenUtau .ustx)
 
 Converts COEIROINK project files (.cink or JSON) to OpenUtau project format (.ustx).
 Strictly matches official OpenUtau project file schema (v0.7).
-Includes lyric sanitization to prevent OpenUTAU UNote.Validate IndexOutOfRangeException.
+
+Pitch Algorithm: Fujisaki Model (Command-Response Model)
+- log F0(t) = log Fb + P(t) + A(t)
+- Phrase component P(t) driven by phrase commands at sentence start & punctuation ("、")
+- Accent component A(t) driven by accent==1 mora commands
+- Range clamping and 3-stage MIDI note mapping (Low 58, Mid 60, High 63)
+- Special corrections for sokuon, question marks, commas, track head & sentence end R notes
 """
 
 import os
 import sys
 import json
 import zipfile
+import math
 import argparse
 from typing import List, Dict, Any, Tuple, Optional
 
-# Pitch Mapping Constants
+# MIDI Note Constants
 TONE_LOW = 58   # A#3
 TONE_MID = 60   # C4
 TONE_HIGH = 63  # D#4
-REST_TONE = 60  # Fallback tone for rests
 
 # Timing Constants (quarter note = 480 ticks)
 MORA_TICKS = 240  # 8th note
@@ -283,9 +289,7 @@ def extract_cink_json(file_path: str) -> Dict[str, Any]:
 def sanitize_text(text: str) -> str:
     if not text:
         return ""
-    # Remove unicode replacement character \ufffd
-    cleaned = text.replace('\ufffd', '').strip()
-    return cleaned
+    return text.replace('\ufffd', '').strip()
 
 def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
     lines = []
@@ -401,54 +405,156 @@ def extract_dialogue_item(item: Dict[str, Any], idx: int) -> Dict[str, Any]:
         "accent_phrases": normalize_accent_phrases(accent_phrases)
     }
 
-def quantize_pitch_3stage(pitches: List[float]) -> Dict[float, int]:
-    valid_pitches = [p for p in pitches if p is not None and p > 0]
-    if not valid_pitches:
+# ==============================================================================
+# Fujisaki Model F0 & Pitch Calculation Engine
+# ==============================================================================
+
+def fujisaki_phrase_response(t: float, alpha: float = 3.0) -> float:
+    """Impulse response of Fujisaki phrase control mechanism: G_p(t) = alpha^2 * t * exp(-alpha * t)."""
+    if t < 0:
+        return 0.0
+    return (alpha ** 2) * t * math.exp(-alpha * t)
+
+def fujisaki_accent_response(t: float, beta: float = 20.0, gamma: float = 0.9) -> float:
+    """Step response of Fujisaki accent control mechanism: G_a(t) = min(1 - (1 + beta*t)*exp(-beta*t), gamma)."""
+    if t < 0:
+        return 0.0
+    val = 1.0 - (1.0 + beta * t) * math.exp(-beta * t)
+    return min(val, gamma)
+
+def compute_fujisaki_pitches_for_line(line: Dict[str, Any], bpm: int = 180,
+                                     alpha: float = 3.0, beta: float = 20.0,
+                                     fb_hz: float = 130.0) -> List[Tuple[Dict[str, Any], float]]:
+    """
+    Computes Fujisaki model fundamental frequency F0(t) for each mora in a dialogue line.
+    - Phrase commands (A_p = 0.35) are triggered at sentence start and after punctuation ("、") or phrase pauses.
+    - Accent commands (A_a = 0.45) are active during moras with accent == 1.
+    - Returns list of (mora_dict, f0_hz) tuples.
+    """
+    accent_phrases = line.get("accent_phrases", [])
+    mora_duration_sec = (60.0 / float(bpm)) * 0.5  # 8th note duration in seconds
+    
+    # Flatten moras with timing
+    timeline_moras = []
+    current_time = 0.0
+    
+    phrase_command_times = [0.0]  # Sentence start phrase command
+    
+    for ap_idx, ap in enumerate(accent_phrases):
+        moras = ap.get("moras", [])
+        for m_idx, mora in enumerate(moras):
+            text = mora.get("text") or mora.get("hira") or ""
+            timeline_moras.append({
+                "mora": mora,
+                "start_time": current_time,
+                "text": text,
+                "accent": mora.get("accent", 0)
+            })
+            current_time += mora_duration_sec
+            
+            # Phrase reset on comma
+            if text in COMMA_CHARS or text in PUNCTUATION_CHARS:
+                phrase_command_times.append(current_time)
+        
+        # Phrase reset on pause_sec between accent phrases
+        pause_sec = ap.get("pause_sec", 0.0)
+        pause_mora = ap.get("pause_mora")
+        if (pause_sec > 0.05 or pause_mora is not None) and ap_idx < len(accent_phrases) - 1:
+            phrase_command_times.append(current_time)
+    
+    log_fb = math.log(fb_hz)
+    ap_mag = 0.35  # Phrase command magnitude
+    aa_mag = 0.45  # Accent command magnitude
+    
+    results = []
+    for item in timeline_moras:
+        t = item["start_time"] + (mora_duration_sec / 2.0)  # Midpoint time of mora
+        
+        # 1. Sum Phrase Component P(t)
+        p_t = 0.0
+        for t_p in phrase_command_times:
+            if t >= t_p:
+                p_t += ap_mag * fujisaki_phrase_response(t - t_p, alpha=alpha)
+        
+        # 2. Sum Accent Component A(t)
+        a_t = 0.0
+        for other in timeline_moras:
+            if other["accent"] == 1:
+                t1 = other["start_time"]
+                t2 = t1 + mora_duration_sec
+                if t >= t1:
+                    a_t += aa_mag * (fujisaki_accent_response(t - t1, beta=beta) - fujisaki_accent_response(t - t2, beta=beta))
+        
+        log_f0 = log_fb + p_t + a_t
+        f0_hz = math.exp(log_f0)
+        results.append((item["mora"], f0_hz))
+        
+    return results
+
+def quantize_fujisaki_pitches(f0_list: List[float]) -> Dict[float, int]:
+    """
+    Quantizes Fujisaki F0 values into 3 MIDI Note Tones:
+    Low (58 / A#3), Mid (60 / C4), High (63 / D#4).
+    Uses quantiles with clamping range protection.
+    """
+    valid = [f for f in f0_list if f > 0]
+    if not valid:
         return {}
     
-    sorted_p = sorted(valid_pitches)
-    n = len(sorted_p)
-    if n == 1 or sorted_p[0] == sorted_p[-1]:
-        return {p: TONE_MID for p in set(valid_pitches)}
+    sorted_f = sorted(valid)
+    n = len(sorted_f)
+    if n == 1 or sorted_f[0] == sorted_f[-1]:
+        return {f: TONE_MID for f in set(valid)}
     
-    p33 = sorted_p[n // 3]
-    p67 = sorted_p[(2 * n) // 3]
+    f33 = sorted_f[n // 3]
+    f67 = sorted_f[(2 * n) // 3]
     
-    if p33 == p67:
-        min_p = sorted_p[0]
-        max_p = sorted_p[-1]
-        p33 = min_p + (max_p - min_p) / 3.0
-        p67 = min_p + 2.0 * (max_p - min_p) / 3.0
+    if f33 == f67:
+        min_f = sorted_f[0]
+        max_f = sorted_f[-1]
+        f33 = min_f + (max_f - min_f) / 3.0
+        f67 = min_f + 2.0 * (max_f - min_f) / 3.0
     
     mapping = {}
-    for p in set(valid_pitches):
-        if p < p33:
-            mapping[p] = TONE_LOW
-        elif p < p67:
-            mapping[p] = TONE_MID
+    for f in set(valid):
+        if f < f33:
+            mapping[f] = TONE_LOW
+        elif f < f67:
+            mapping[f] = TONE_MID
         else:
-            mapping[p] = TONE_HIGH
+            mapping[f] = TONE_HIGH
             
     return mapping
 
-def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80) -> List[Dict[str, Any]]:
+# ==============================================================================
+# Note Generation with Fujisaki Pitch Model & Special Rest Corrections
+# ==============================================================================
+
+def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80, 
+                             bpm: int = 180, alpha: float = 3.0, beta: float = 20.0,
+                             fb_hz: float = 130.0) -> List[Dict[str, Any]]:
+    """
+    Expands accent phrases into note sequence using Fujisaki Pitch Model:
+    - Prepend 1 mora (240 ticks) R rest note at track head, Tone = Low (58).
+    - Fujisaki Model calculates F0 for each mora, quantized into Low (58), Mid (60), High (63).
+    - Sokuon ("っ", "ッ") -> R rest note, Tone = High (63).
+    - Question Mark ("？", "?") -> R rest note, Tone = High (63). Duplicate ending R removed.
+    - Comma ("、", ",") -> R rest note, Tone = High (63) if prev mora accented else Low (58).
+    - Sentence ending R rest note -> Tone = Low (58).
+    - Portamento enabled for ALL notes including R notes.
+    - Vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}.
+    """
     accent_phrases = line.get("accent_phrases", [])
     
-    all_pitches = []
-    for ap in accent_phrases:
-        for mora in ap.get("moras", []):
-            text = mora.get("text") or mora.get("hira") or ""
-            pitch = mora.get("pitch")
-            if text not in SOKUON_CHARS and text not in QUESTION_CHARS and text not in COMMA_CHARS and pitch is not None and pitch > 0:
-                all_pitches.append(pitch)
-    
-    has_numeric_pitch = len(all_pitches) > 0
-    pitch_map = quantize_pitch_3stage(all_pitches) if has_numeric_pitch else {}
+    # Compute Fujisaki F0 values
+    fujisaki_results = compute_fujisaki_pitches_for_line(line, bpm=bpm, alpha=alpha, beta=beta, fb_hz=fb_hz)
+    f0_values = [f0 for (_, f0) in fujisaki_results]
+    pitch_map = quantize_fujisaki_pitches(f0_values)
     
     notes = []
     current_pos = 0
     
-    # Prepend Leading R note
+    # 1. Prepend Leading R note (8th note = 240 ticks), Tone = Low (58)
     leading_rest = create_note_object(
         position=current_pos,
         duration=MORA_TICKS,
@@ -462,12 +568,16 @@ def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80) 
     prev_tone: Optional[int] = TONE_LOW
     prev_mora_accented = False
     
+    fujisaki_idx = 0
     for ap_idx, ap in enumerate(accent_phrases):
         moras = ap.get("moras", [])
         for m_idx, mora in enumerate(moras):
             text = mora.get("text") or mora.get("hira") or ""
-            raw_pitch = mora.get("pitch")
             accent = mora.get("accent", 0)
+            
+            # Retrieve Fujisaki pitch for this mora
+            f0 = f0_values[fujisaki_idx] if fujisaki_idx < len(f0_values) else 130.0
+            fujisaki_idx += 1
             
             if text in SOKUON_CHARS:
                 lyric = "R"
@@ -487,15 +597,8 @@ def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80) 
                 prev_mora_accented = False
             else:
                 lyric = text
-                if has_numeric_pitch and raw_pitch in pitch_map:
-                    tone = pitch_map[raw_pitch]
-                else:
-                    if accent == 1:
-                        tone = TONE_HIGH
-                    elif m_idx == 0:
-                        tone = TONE_LOW
-                    else:
-                        tone = TONE_MID
+                # Use Fujisaki quantized tone if available, fallback to accent status
+                tone = pitch_map.get(f0, TONE_HIGH if accent == 1 else (TONE_LOW if m_idx == 0 else TONE_MID))
                 prev_mora_accented = (tone == TONE_HIGH or accent == 1)
             
             note = create_note_object(
@@ -527,7 +630,7 @@ def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80) 
             current_pos += MORA_TICKS
             prev_tone = rest_tone
 
-    # Sentence ending R rest note:
+    # 3. Sentence Ending R note (omit duplicate if line ends with R)
     if notes and notes[-1]["lyric"] == "R":
         pass
     else:
@@ -545,7 +648,7 @@ def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 80) 
 
 def create_note_object(position: int, duration: int, tone: int, lyric: str, 
                        prev_tone: Optional[int], portamento_length: int = 80) -> Dict[str, Any]:
-    """Creates an OpenUtau note dictionary with sanitized lyric."""
+    """Creates an OpenUtau note dictionary matching official schema."""
     if not lyric or lyric == '\ufffd':
         lyric = "R"
         
@@ -588,7 +691,9 @@ def create_note_object(position: int, duration: int, tone: int, lyric: str,
         "phoneme_overrides": []
     }
 
-def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 80, bpm: int = 180) -> Dict[str, Any]:
+def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 80, bpm: int = 180,
+                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 130.0) -> Dict[str, Any]:
+    """Constructs the complete OpenUtau .ustx project dictionary matching official schema."""
     lines = parse_dialogue_lines(cink_data)
     if not lines:
         raise ValueError("入力されたCOEIROINKデータ内に有効なセリフ（アクセント句）が見つかりませんでした。")
@@ -613,7 +718,8 @@ def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 80, bpm: int =
             "voice_color_names": [""]
         })
         
-        notes = build_notes_for_dialogue(line, portamento_length=portamento_length)
+        notes = build_notes_for_dialogue(line, portamento_length=portamento_length, bpm=bpm,
+                                        alpha=alpha, beta=beta, fb_hz=fb_hz)
         part_duration = notes[-1]["position"] + notes[-1]["duration"] if notes else 0
         
         voice_parts.append({
@@ -706,11 +812,14 @@ def format_yaml_scalar(val: Any) -> str:
     return s
 
 def main():
-    parser = argparse.ArgumentParser(description="HANAX-U コンバータ (COEIROINK .cink / JSON -> OpenUtau .ustx)")
+    parser = argparse.ArgumentParser(description="HANAX-U コンバータ (藤崎モデル搭載 COEIROINK .cink / JSON -> OpenUtau .ustx)")
     parser.add_argument("input_path", help="Path to input .cink or .json file")
     parser.add_argument("output_path", nargs="?", help="Path to output .ustx file (optional)")
     parser.add_argument("--bpm", type=int, default=180, help="Tempo BPM (default: 180)")
     parser.add_argument("--portamento", type=int, default=80, help="Portamento transition length in ticks (default: 80)")
+    parser.add_argument("--alpha", type=float, default=3.0, help="Fujisaki alpha phrase decay parameter (default: 3.0)")
+    parser.add_argument("--beta", type=float, default=20.0, help="Fujisaki beta accent rise parameter (default: 20.0)")
+    parser.add_argument("--fb", type=float, default=130.0, help="Fujisaki base frequency Fb in Hz (default: 130.0)")
     
     args = parser.parse_args()
     
@@ -724,8 +833,9 @@ def main():
     print(f"Reading COEIROINK project from: {input_path}")
     cink_data = extract_cink_json(input_path)
     
-    print("Converting to OpenUtau format...")
-    ustx_data = convert_cink_to_ustx(cink_data, portamento_length=args.portamento, bpm=args.bpm)
+    print("Converting to OpenUtau format using Fujisaki Model Pitch Engine...")
+    ustx_data = convert_cink_to_ustx(cink_data, portamento_length=args.portamento, bpm=args.bpm,
+                                     alpha=args.alpha, beta=args.beta, fb_hz=args.fb)
     
     save_ustx_file(ustx_data, output_path)
     print(f"Successfully exported OpenUtau project to: {output_path}")

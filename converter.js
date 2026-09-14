@@ -1,7 +1,6 @@
 /**
- * converter.js - HANAX-U コンバータ (COEIROINK .cink -> OpenUtau .ustx Engine)
+ * converter.js - HANAX-U コンバータ (Fujisaki Model Pitch Engine & OpenUtau .ustx Exporter)
  * Strictly matches official OpenUtau project file schema (v0.7).
- * Includes lyric sanitization to prevent OpenUTAU UNote.Validate IndexOutOfRangeException.
  */
 
 const TONE_LOW = 58;   // A#3
@@ -46,11 +45,138 @@ function sanitizeText(text) {
 }
 
 /**
+ * Fujisaki Model Impulse Response G_p(t)
+ */
+function fujisakiPhraseResponse(t, alpha = 3.0) {
+    if (t < 0) return 0.0;
+    return (alpha * alpha) * t * Math.exp(-alpha * t);
+}
+
+/**
+ * Fujisaki Model Step Response G_a(t)
+ */
+function fujisakiAccentResponse(t, beta = 20.0, gamma = 0.9) {
+    if (t < 0) return 0.0;
+    const val = 1.0 - (1.0 + beta * t) * Math.exp(-beta * t);
+    return Math.min(val, gamma);
+}
+
+/**
+ * Computes Fujisaki F0 fundamental frequency for each mora in line.
+ */
+function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 130.0) {
+    const accentPhrases = line.accent_phrases || [];
+    const moraDurationSec = (60.0 / Number(bpm)) * 0.5;
+
+    const timelineMoras = [];
+    let currentTime = 0.0;
+    const phraseCommandTimes = [0.0];
+
+    accentPhrases.forEach((ap, apIdx) => {
+        const moras = ap.moras || [];
+        moras.forEach(mora => {
+            const text = mora.text || mora.hira || "";
+            timelineMoras.push({
+                mora: mora,
+                startTime: currentTime,
+                text: text,
+                accent: mora.accent || 0
+            });
+            currentTime += moraDurationSec;
+
+            if (COMMA_CHARS.has(text) || PUNCTUATION_CHARS.has(text)) {
+                phraseCommandTimes.push(currentTime);
+            }
+        });
+
+        const pauseSec = ap.pause_sec || 0;
+        if ((pauseSec > 0.05 || ap.pause_mora) && apIdx < accentPhrases.length - 1) {
+            phraseCommandTimes.push(currentTime);
+        }
+    });
+
+    const logFb = Math.log(fbHz);
+    const apMag = 0.35;
+    const aaMag = 0.45;
+
+    const results = [];
+    timelineMoras.forEach(item => {
+        const t = item.startTime + (moraDurationSec / 2.0);
+
+        let pT = 0.0;
+        phraseCommandTimes.forEach(tP => {
+            if (t >= tP) {
+                pT += apMag * fujisakiPhraseResponse(t - tP, alpha);
+            }
+        });
+
+        let aT = 0.0;
+        timelineMoras.forEach(other => {
+            if (other.accent === 1) {
+                const t1 = other.startTime;
+                const t2 = t1 + moraDurationSec;
+                if (t >= t1) {
+                    aT += aaMag * (fujisakiAccentResponse(t - t1, beta) - fujisakiAccentResponse(t - t2, beta));
+                }
+            }
+        });
+
+        const logF0 = logFb + pT + aT;
+        const f0Hz = Math.exp(logF0);
+        results.append = { mora: item.mora, f0Hz: f0Hz };
+        results.push({ mora: item.mora, f0Hz: f0Hz });
+    });
+
+    return results;
+}
+
+function quantizeFujisakiPitches(f0List) {
+    const valid = f0List.filter(f => f > 0);
+    if (valid.length === 0) return new Map();
+
+    const sorted = [...valid].sort((a, b) => a - b);
+    const n = sorted.length;
+    const mapping = new Map();
+
+    if (n === 1 || sorted[0] === sorted[n - 1]) {
+        sorted.forEach(f => mapping.set(f, TONE_MID));
+        return mapping;
+    }
+
+    let f33 = sorted[Math.floor(n / 3)];
+    let f67 = sorted[Math.floor((2 * n) / 3)];
+
+    if (f33 === f67) {
+        const minF = sorted[0];
+        const maxF = sorted[n - 1];
+        f33 = minF + (maxF - minF) / 3.0;
+        f67 = minF + (2.0 * (maxF - minF)) / 3.0;
+    }
+
+    const uniqueF = new Set(valid);
+    uniqueF.forEach(f => {
+        if (f < f33) {
+            mapping.set(f, TONE_LOW);
+        } else if (f < f67) {
+            mapping.set(f, TONE_MID);
+        } else {
+            mapping.set(f, TONE_HIGH);
+        }
+    });
+
+    return mapping;
+}
+
+/**
  * Main conversion function for JS environment.
  */
 function convertCinkToUstx(cinkData, options = {}) {
     const portamentoLength = options.portamentoLength !== undefined ? options.portamentoLength : 80;
     const bpm = options.bpm !== undefined ? options.bpm : 180;
+    const alpha = options.alpha !== undefined ? options.alpha : 3.0;
+    const beta = options.beta !== undefined ? options.beta : 20.0;
+    const fbHz = options.fbHz !== undefined ? options.fbHz : 130.0;
+
     const lines = parseDialogueLines(cinkData);
 
     if (!lines || lines.length === 0) {
@@ -60,7 +186,7 @@ function convertCinkToUstx(cinkData, options = {}) {
     const tracks = [];
     const voiceParts = [];
     let totalNotesCount = 0;
-    let pitchStats = { low: 0, mid: 0, high: 0, rest: 0 };
+    let pitchStats = { low: 0, mid: 0, high: 0, rest: 0, phraseResets: 0, f0Min: 999, f0Max: 0 };
 
     lines.forEach((line, idx) => {
         const trackName = String(idx + 1).padStart(4, "0");
@@ -79,7 +205,7 @@ function convertCinkToUstx(cinkData, options = {}) {
             voice_color_names: [""]
         });
 
-        const notes = buildNotesForDialogue(line, portamentoLength, pitchStats);
+        const notes = buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, pitchStats);
         totalNotesCount += notes.length;
         const partDuration = notes.length > 0 ? (notes[notes.length - 1].position + notes[notes.length - 1].duration) : 0;
 
@@ -143,9 +269,6 @@ function convertCinkToUstx(cinkData, options = {}) {
     };
 }
 
-/**
- * Parses COEIROINK JSON into a standardized array of dialogue objects.
- */
 function parseDialogueLines(data) {
     const lines = [];
 
@@ -253,67 +376,23 @@ function extractDialogueItem(item, idx) {
 }
 
 /**
- * Quantizes numeric pitches into 3 levels: Low (58), Mid (60), High (63).
+ * Builds array of notes for a dialogue line using Fujisaki Model Pitch Engine.
  */
-function quantizePitch3Stage(pitches) {
-    const valid = pitches.filter(p => p !== null && p !== undefined && p > 0);
-    if (valid.length === 0) return new Map();
-
-    const sorted = [...valid].sort((a, b) => a - b);
-    const n = sorted.length;
-    const mapping = new Map();
-
-    if (n === 1 || sorted[0] === sorted[n - 1]) {
-        sorted.forEach(p => mapping.set(p, TONE_MID));
-        return mapping;
-    }
-
-    let p33 = sorted[Math.floor(n / 3)];
-    let p67 = sorted[Math.floor((2 * n) / 3)];
-
-    if (p33 === p67) {
-        const minP = sorted[0];
-        const maxP = sorted[n - 1];
-        p33 = minP + (maxP - minP) / 3.0;
-        p67 = minP + (2.0 * (maxP - minP)) / 3.0;
-    }
-
-    const uniqueP = new Set(valid);
-    uniqueP.forEach(p => {
-        if (p < p33) {
-            mapping.set(p, TONE_LOW);
-        } else if (p < p67) {
-            mapping.set(p, TONE_MID);
-        } else {
-            mapping.set(p, TONE_HIGH);
-        }
-    });
-
-    return mapping;
-}
-
-/**
- * Builds array of notes for a dialogue line.
- */
-function buildNotesForDialogue(line, portamentoLength, pitchStats) {
+function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, pitchStats) {
     const accentPhrases = line.accent_phrases || [];
-    const allPitches = [];
+    const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz);
+    const f0Values = fujisakiResults.map(r => r.f0Hz);
+    const pitchMap = quantizeFujisakiPitches(f0Values);
 
-    accentPhrases.forEach(ap => {
-        (ap.moras || []).forEach(mora => {
-            const text = mora.text || mora.hira || "";
-            if (!SOKUON_CHARS.has(text) && !QUESTION_CHARS.has(text) && !COMMA_CHARS.has(text) && mora.pitch !== undefined && mora.pitch !== null && mora.pitch > 0) {
-                allPitches.push(mora.pitch);
-            }
-        });
+    f0Values.forEach(f => {
+        if (f < pitchStats.f0Min) pitchStats.f0Min = Math.round(f);
+        if (f > pitchStats.f0Max) pitchStats.f0Max = Math.round(f);
     });
 
-    const hasNumericPitch = allPitches.length > 0;
-    const pitchMap = hasNumericPitch ? quantizePitch3Stage(allPitches) : new Map();
     const notes = [];
     let currentPos = 0;
 
-    // 1. Prepend Leading R Note (8th note = 240 ticks), Tone = Low (58)
+    // 1. Prepend Leading R Note
     const leadingRest = createNoteObject(currentPos, MORA_TICKS, TONE_LOW, "R", null, portamentoLength);
     notes.push(leadingRest);
     currentPos += MORA_TICKS;
@@ -321,12 +400,16 @@ function buildNotesForDialogue(line, portamentoLength, pitchStats) {
     let prevMoraAccented = false;
     pitchStats.rest++;
 
+    let fujisakiIdx = 0;
     accentPhrases.forEach((ap, apIdx) => {
         const moras = ap.moras || [];
         moras.forEach((mora, mIdx) => {
             const text = mora.text || mora.hira || "";
-            const rawPitch = mora.pitch;
             const accent = mora.accent || 0;
+
+            const f0 = f0Values[fujisakiIdx] !== undefined ? f0Values[fujisakiIdx] : fbHz;
+            fujisakiIdx++;
+
             let lyric, tone;
 
             if (SOKUON_CHARS.has(text)) {
@@ -344,32 +427,25 @@ function buildNotesForDialogue(line, portamentoLength, pitchStats) {
                 tone = prevMoraAccented ? TONE_HIGH : TONE_LOW;
                 prevMoraAccented = false;
                 pitchStats.rest++;
+                pitchStats.phraseResets++;
             } else if (PUNCTUATION_CHARS.has(text) || !text) {
                 lyric = "R";
                 tone = TONE_LOW;
                 prevMoraAccented = false;
                 pitchStats.rest++;
+                pitchStats.phraseResets++;
             } else {
                 lyric = text;
-                if (hasNumericPitch && pitchMap.has(rawPitch)) {
-                    tone = pitchMap.get(rawPitch);
-                } else {
-                    if (accent === 1) {
-                        tone = TONE_HIGH;
-                    } else if (mIdx === 0) {
-                        tone = TONE_LOW;
-                    } else {
-                        tone = TONE_MID;
-                    }
-                }
-
+                tone = pitchMap.get(f0) || (accent === 1 ? TONE_HIGH : (mIdx === 0 ? TONE_LOW : TONE_MID));
                 prevMoraAccented = (tone === TONE_HIGH || accent === 1);
+
                 if (tone === TONE_LOW) pitchStats.low++;
                 else if (tone === TONE_MID) pitchStats.mid++;
                 else if (tone === TONE_HIGH) pitchStats.high++;
             }
 
             const note = createNoteObject(currentPos, MORA_TICKS, tone, lyric, prevTone, portamentoLength);
+            note._f0Hz = Math.round(f0);
             notes.push(note);
             currentPos += MORA_TICKS;
             prevTone = tone;
@@ -384,6 +460,7 @@ function buildNotesForDialogue(line, portamentoLength, pitchStats) {
             currentPos += MORA_TICKS;
             prevTone = restTone;
             pitchStats.rest++;
+            pitchStats.phraseResets++;
         }
     });
 
@@ -418,9 +495,9 @@ function createNoteObject(position, duration, tone, lyric, prevTone, portamentoL
                     shape: "io"
                 },
                 {
-                    "x": portamentoLength,
-                    "y": 0,
-                    "shape": "io"
+                    x: portamentoLength,
+                    y: 0,
+                    shape: "io"
                 }
             ],
             snap_first: true
@@ -490,5 +567,5 @@ function formatScalar(val) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { convertCinkToUstx, parseDialogueLines, quantizePitch3Stage };
+    module.exports = { convertCinkToUstx, parseDialogueLines, quantizeFujisakiPitches };
 }

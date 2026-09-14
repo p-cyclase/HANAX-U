@@ -1,5 +1,5 @@
 /**
- * app.js - Web UI Controller for HANAX-U Converter
+ * app.js - Web UI Controller for HANAX-U Converter (Fujisaki Model)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,10 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('downloadBtn');
     const bpmInput = document.getElementById('bpmInput');
     const portamentoInput = document.getElementById('portamentoInput');
+    const alphaInput = document.getElementById('alphaInput');
+    const betaInput = document.getElementById('betaInput');
+    const fbInput = document.getElementById('fbInput');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
     const statNotes = document.getElementById('statNotes');
+    const statF0Range = document.getElementById('statF0Range');
     const statPitches = document.getElementById('statPitches');
     const tracksContainer = document.getElementById('tracksContainer');
 
@@ -68,8 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawData = await readCinkFile(file);
             const portamentoLength = parseInt(portamentoInput.value, 10) || 80;
             const bpm = parseInt(bpmInput.value, 10) || 180;
+            const alpha = parseFloat(alphaInput.value) || 3.0;
+            const beta = parseFloat(betaInput.value) || 20.0;
+            const fbHz = parseFloat(fbInput.value) || 130.0;
 
-            convertedResult = convertCinkToUstx(rawData, { portamentoLength, bpm });
+            convertedResult = convertCinkToUstx(rawData, { portamentoLength, bpm, alpha, beta, fbHz });
             renderPreview(convertedResult);
 
             downloadBtn.disabled = false;
@@ -111,6 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         statLines.textContent = stats.lineCount;
         statNotes.textContent = stats.totalNotes;
+        const minF = stats.pitchStats.f0Min < 999 ? stats.pitchStats.f0Min : 130;
+        const maxF = stats.pitchStats.f0Max > 0 ? stats.pitchStats.f0Max : 130;
+        statF0Range.textContent = `${minF} - ${maxF} Hz`;
         statPitches.textContent = `L:${stats.pitchStats.low} | M:${stats.pitchStats.mid} | H:${stats.pitchStats.high}`;
 
         tracksContainer.innerHTML = '';
@@ -153,6 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (note.tone === 58) { pitchLabel = 'R (低)'; }
                     else if (note.tone === 63) { pitchLabel = 'R (高)'; }
                     else { pitchLabel = 'R'; }
+                }
+
+                if (note._f0Hz) {
+                    pitchLabel += ` (${note._f0Hz}Hz)`;
                 }
 
                 chip.className = `note-chip ${toneClass}`;
