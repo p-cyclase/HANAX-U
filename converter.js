@@ -185,7 +185,7 @@ function convertCinkToUstx(cinkData, options = {}) {
     const tracks = [];
     const voiceParts = [];
     let totalNotesCount = 0;
-    let pitchStats = { low: 0, mid: 0, high: 0, rest: 0, phraseResets: 0, f0Min: 999, f0Max: 0 };
+    let pitchStats = { semitone: 0, rest: 0, phraseResets: 0, f0Min: 999, f0Max: 0 };
 
     lines.forEach((line, idx) => {
         const trackName = String(idx + 1).padStart(4, "0");
@@ -394,7 +394,9 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
     const accentPhrases = line.accent_phrases || [];
     const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz);
     const f0Values = fujisakiResults.map(r => r.f0Hz);
-    const pitchMap = quantizeFujisakiPitches(f0Values);
+    const moraEvents = accentPhrases.flatMap((phrase, phraseIndex) =>
+        (phrase.moras || []).map(mora => ({ mora, phraseIndex }))
+    );
 
     f0Values.forEach(f => {
         if (f < pitchStats.f0Min) pitchStats.f0Min = Math.round(f);
@@ -404,11 +406,22 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
     const notes = [];
     let currentPos = 0;
 
-    // 1. Prepend Leading R Note
-    const leadingRest = createNoteObject(currentPos, MORA_TICKS, TONE_LOW, "R", null, portamentoLength);
+    const nextVoicedMidi = (startIndex) => {
+        for (let index = startIndex; index < moraEvents.length; index++) {
+            const text = moraEvents[index].mora.text || moraEvents[index].mora.hira || "";
+            if (!isRestText(text)) return hzToMidi(f0Values[index] || fbHz);
+        }
+        return null;
+    };
+
+    // Keep the original low-start policy, but place the rest relative to the
+    // first voiced note so it belongs to the same continuous contour.
+    let prevRenderedMidi = chooseRestMidi("leading", null, nextVoicedMidi(0), hzToMidi(f0Values[0] || fbHz));
+    const leadingRest = createNoteObject(currentPos, MORA_TICKS, prevRenderedMidi, "R", null, portamentoLength);
     notes.push(leadingRest);
     currentPos += MORA_TICKS;
-    let prevTone = TONE_LOW;
+    prevRenderedMidi = leadingRest.tone;
+    let prevSungMidi = null;
     let prevMoraAccented = false;
     pitchStats.rest++;
 
@@ -422,55 +435,53 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
             const f0 = f0Values[fujisakiIdx] !== undefined ? f0Values[fujisakiIdx] : fbHz;
             fujisakiIdx++;
 
-            let lyric, tone;
+            let lyric, midiPitch;
+            const nextMidi = nextVoicedMidi(fujisakiIdx);
 
             if (SOKUON_CHARS.has(text)) {
                 lyric = "R";
-                tone = TONE_HIGH;
+                midiPitch = chooseRestMidi("high", prevSungMidi, nextMidi, hzToMidi(f0));
                 prevMoraAccented = true;
                 pitchStats.rest++;
             } else if (QUESTION_CHARS.has(text)) {
                 lyric = "R";
-                tone = TONE_HIGH;
+                midiPitch = chooseRestMidi("high", prevSungMidi, nextMidi, hzToMidi(f0));
                 prevMoraAccented = true;
                 pitchStats.rest++;
             } else if (COMMA_CHARS.has(text)) {
                 lyric = "R";
-                tone = prevMoraAccented ? TONE_HIGH : TONE_LOW;
+                midiPitch = chooseRestMidi(prevMoraAccented ? "high" : "low", prevSungMidi, nextMidi, hzToMidi(f0));
                 prevMoraAccented = false;
                 pitchStats.rest++;
                 pitchStats.phraseResets++;
             } else if (PUNCTUATION_CHARS.has(text) || !text) {
                 lyric = "R";
-                tone = TONE_LOW;
+                midiPitch = chooseRestMidi("low", prevSungMidi, nextMidi, hzToMidi(f0));
                 prevMoraAccented = false;
                 pitchStats.rest++;
                 pitchStats.phraseResets++;
             } else {
                 lyric = text;
-                tone = pitchMap.get(f0) || (accent === 1 ? TONE_HIGH : (mIdx === 0 ? TONE_LOW : TONE_MID));
-                prevMoraAccented = (tone === TONE_HIGH || accent === 1);
-
-                if (tone === TONE_LOW) pitchStats.low++;
-                else if (tone === TONE_MID) pitchStats.mid++;
-                else if (tone === TONE_HIGH) pitchStats.high++;
+                midiPitch = hzToMidi(f0);
+                prevSungMidi = midiPitch;
+                prevMoraAccented = accent === 1;
+                pitchStats.semitone++;
             }
 
-            const note = createNoteObject(currentPos, MORA_TICKS, tone, lyric, prevTone, portamentoLength);
-            note._f0Hz = Math.round(f0);
+            const note = createNoteObject(currentPos, MORA_TICKS, midiPitch, lyric, prevRenderedMidi, portamentoLength);
             notes.push(note);
             currentPos += MORA_TICKS;
-            prevTone = tone;
+            prevRenderedMidi = Math.round(midiPitch);
         });
 
         // Pause check
         const pauseSec = ap.pause_sec || 0;
         if ((pauseSec > 0.05 || ap.pause_mora) && apIdx < accentPhrases.length - 1) {
-            const restTone = prevMoraAccented ? TONE_HIGH : TONE_LOW;
-            const restNote = createNoteObject(currentPos, MORA_TICKS, restTone, "R", prevTone, portamentoLength);
+            const restMidi = chooseRestMidi(prevMoraAccented ? "high" : "low", prevSungMidi, nextVoicedMidi(fujisakiIdx), prevRenderedMidi);
+            const restNote = createNoteObject(currentPos, MORA_TICKS, restMidi, "R", prevRenderedMidi, portamentoLength);
             notes.push(restNote);
             currentPos += MORA_TICKS;
-            prevTone = restTone;
+            prevRenderedMidi = Math.round(restMidi);
             pitchStats.rest++;
             pitchStats.phraseResets++;
         }
@@ -480,7 +491,8 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
     if (notes.length > 0 && notes[notes.length - 1].lyric === "R") {
         // Do not duplicate R note
     } else {
-        const endingRest = createNoteObject(currentPos, MORA_TICKS, TONE_LOW, "R", prevTone, portamentoLength);
+        const endingMidi = chooseRestMidi("low", prevSungMidi, null, prevRenderedMidi);
+        const endingRest = createNoteObject(currentPos, MORA_TICKS, endingMidi, "R", prevRenderedMidi, portamentoLength);
         notes.push(endingRest);
         pitchStats.rest++;
     }
@@ -488,12 +500,37 @@ function buildNotesForDialogue(line, portamentoLength, bpm, alpha, beta, fbHz, p
     return notes;
 }
 
-function createNoteObject(position, duration, tone, lyric, prevTone, portamentoLength) {
+function isRestText(text) {
+    return SOKUON_CHARS.has(text) || QUESTION_CHARS.has(text) || COMMA_CHARS.has(text) || PUNCTUATION_CHARS.has(text) || !text;
+}
+
+function hzToMidi(frequency) {
+    return 69 + 12 * Math.log2(Math.max(1, frequency) / 440);
+}
+
+function chooseRestMidi(policy, previousMidi, nextMidi, fallbackMidi) {
+    const anchors = [previousMidi, nextMidi].filter(Number.isFinite);
+    const centre = anchors.length ? anchors.reduce((sum, value) => sum + value, 0) / anchors.length : fallbackMidi;
+    const spanHigh = anchors.length ? Math.max(...anchors) : centre;
+    const spanLow = anchors.length ? Math.min(...anchors) : centre;
+    // High rests retain the former intent for sokuon/questions; low rests do
+    // likewise for phrase boundaries and endings. The small offset preserves
+    // that direction without breaking the surrounding melodic contour.
+    if (policy === "high") return Math.max(centre + 0.35, spanHigh - 0.1);
+    if (policy === "leading") return (nextMidi ?? fallbackMidi) - 0.6;
+    return Math.min(centre - 0.35, spanLow + 0.1);
+}
+
+function createNoteObject(position, duration, midiPitch, lyric, previousMidi, portamentoLength) {
     if (!lyric || lyric === '\ufffd') {
         lyric = "R";
     }
 
-    const yStart = (prevTone !== null && prevTone !== tone) ? (prevTone - tone) * 10 : 0;
+    const tone = Math.round(midiPitch);
+    // The Fujisaki result is quantised to the nearest semitone for each note.
+    // Pitch points retain only the note-to-note portamento transition.
+    const yTarget = 0;
+    const yStart = previousMidi !== null ? (previousMidi - tone) * 10 : yTarget;
     return {
         position: position,
         duration: duration,
@@ -508,11 +545,11 @@ function createNoteObject(position, duration, tone, lyric, prevTone, portamentoL
                 },
                 {
                     x: portamentoLength,
-                    y: 0,
+                    y: yTarget,
                     shape: "io"
                 }
             ],
-            snap_first: true
+            snap_first: false
         },
         vibrato: {
             length: 0,

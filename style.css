@@ -155,8 +155,8 @@ header p {
 /* Options Bar */
 .options-bar {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     gap: 1.25rem;
     margin-top: 1.25rem;
     padding-top: 1.25rem;
@@ -167,9 +167,23 @@ header p {
 .option-group {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    justify-content: space-between;
+    gap: 1.25rem;
     font-size: 0.88rem;
     color: var(--text-muted);
+}
+
+.option-copy label {
+    display: block;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.option-copy p {
+    font-size: 0.8rem;
+    line-height: 1.45;
 }
 
 .option-group input[type="number"] {
@@ -182,6 +196,11 @@ header p {
     font-size: 0.9rem;
     text-align: center;
     font-weight: 600;
+}
+
+.action-group {
+    display: flex;
+    justify-content: flex-end;
 }
 
 /* Action Buttons */
@@ -318,20 +337,10 @@ header p {
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.note-chip.tone-58 {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.4);
-    color: #93c5fd;
-}
-.note-chip.tone-60 {
-    background: rgba(16, 185, 129, 0.2);
-    border-color: rgba(16, 185, 129, 0.4);
-    color: #6ee7b7;
-}
-.note-chip.tone-63 {
-    background: rgba(245, 158, 11, 0.2);
-    border-color: rgba(245, 158, 11, 0.4);
-    color: #fcd34d;
+.note-chip.tone-note {
+    background: rgba(6, 182, 212, 0.2);
+    border-color: rgba(6, 182, 212, 0.45);
+    color: #a5f3fc;
 }
 .note-chip.tone-rest {
     background: rgba(100, 116, 139, 0.2);
@@ -360,4 +369,10 @@ header p {
 ::-webkit-scrollbar-thumb {
     background: rgba(99, 102, 241, 0.4);
     border-radius: 3px;
+}
+
+@media (max-width: 560px) {
+    .option-group { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
+    .option-group input[type="number"] { width: 100%; text-align: left; }
+    .action-group .btn-primary { width: 100%; justify-content: center; }
 }

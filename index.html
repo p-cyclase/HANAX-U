@@ -21,10 +21,8 @@
             <h1>HANAX-U コンバータ</h1>
             <p>藤崎モデル（F0生成モデル）に基づき、COEIROINK（.cink / JSON）を OpenUTAU（.ustx）へ自動変換します。</p>
             <div class="badge-bar">
-                <span class="badge"><span class="badge-dot low"></span>低: Tone 58 (A#3)</span>
-                <span class="badge"><span class="badge-dot mid"></span>中: Tone 60 (C4)</span>
-                <span class="badge"><span class="badge-dot high"></span>高: Tone 63 (D#4)</span>
-                <span class="badge"><span class="badge-dot rest"></span>休符: R (頭/促音/句読点/文末)</span>
+                <span class="badge"><span class="badge-dot mid"></span>藤崎モデル F0 → 半音単位のMIDI音高</span>
+                <span class="badge"><span class="badge-dot rest"></span>休符: 前後の音高に調和</span>
                 <span class="badge">⏱ 8分音符 (240 ticks)</span>
                 <span class="badge">📈 藤崎モデル F0 制御</span>
             </div>
@@ -39,25 +37,25 @@
                 <input type="file" id="fileInput" class="file-input" accept=".cink,.json,.zip">
             </div>
 
-            <div class="options-bar">
+            <div class="options-bar" aria-label="変換設定">
                 <div class="option-group">
-                    <label for="bpmInput">BPM:</label>
+                    <div class="option-copy"><label for="bpmInput">BPM</label><p>変換後の楽曲テンポです。1拍あたりの速さを指定します。</p></div>
                     <input type="number" id="bpmInput" value="180" min="1" max="999" step="1">
                 </div>
                 <div class="option-group">
-                    <label for="portamentoInput">ポルタメント長 (ticks):</label>
+                    <div class="option-copy"><label for="portamentoInput">ポルタメント長（ticks）</label><p>ノートの切り替わりを滑らかにつなぐ長さです。0で無効になります。</p></div>
                     <input type="number" id="portamentoInput" value="80" min="0" max="240" step="5">
                 </div>
                 <div class="option-group">
-                    <label for="alphaInput">フレーズ減衰 (α):</label>
+                    <div class="option-copy"><label for="alphaInput">フレーズ減衰（α）</label><p>文節全体の音高変化が落ち着く速さです。大きいほど早く減衰します。</p></div>
                     <input type="number" id="alphaInput" value="3.0" min="0.5" max="10.0" step="0.5">
                 </div>
                 <div class="option-group">
-                    <label for="betaInput">アクセント応答 (β):</label>
+                    <div class="option-copy"><label for="betaInput">アクセント応答（β）</label><p>アクセントによる立ち上がりの鋭さです。大きいほど素早く変化します。</p></div>
                     <input type="number" id="betaInput" value="20.0" min="5.0" max="50.0" step="1.0">
                 </div>
                 <div class="option-group">
-                    <label for="fbInput">基底周波数 (Fb Hz):</label>
+                    <div class="option-copy"><label for="fbInput">基底周波数（Fb Hz）</label><p>藤崎モデルの基準となる声の高さです。全体の音域を上下させます。目安は男性ボイスで100〜150 Hz、女性ボイスで180〜240 Hzです。</p></div>
                     <input type="number" id="fbInput" value="130" min="50" max="400" step="5">
                 </div>
                 <div class="action-group">
@@ -91,8 +89,8 @@
                     <div class="stat-label">藤崎モデル F0 範囲</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value" id="statPitches">L:0 | M:0 | H:0</div>
-                    <div class="stat-label">ピッチ量子化分布</div>
+                    <div class="stat-value" id="statPitches">0 notes</div>
+                    <div class="stat-label">半音量子化ノート数</div>
                 </div>
             </div>
 

@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const minF = stats.pitchStats.f0Min < 999 ? stats.pitchStats.f0Min : 130;
         const maxF = stats.pitchStats.f0Max > 0 ? stats.pitchStats.f0Max : 130;
         statF0Range.textContent = `${minF} - ${maxF} Hz`;
-        statPitches.textContent = `L:${stats.pitchStats.low} | M:${stats.pitchStats.mid} | H:${stats.pitchStats.high}`;
+        statPitches.textContent = `${stats.pitchStats.semitone} notes`;
 
         tracksContainer.innerHTML = '';
 
@@ -216,17 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let pitchLabel = 'R';
 
                 if (note.lyric !== 'R') {
-                    if (note.tone === 58) { toneClass = 'tone-58'; pitchLabel = 'A#3'; }
-                    else if (note.tone === 60) { toneClass = 'tone-60'; pitchLabel = 'C4'; }
-                    else if (note.tone === 63) { toneClass = 'tone-63'; pitchLabel = 'D#4'; }
+                    toneClass = 'tone-note';
+                    pitchLabel = midiToNoteName(note.tone);
                 } else {
-                    if (note.tone === 58) { pitchLabel = 'R (低)'; }
-                    else if (note.tone === 63) { pitchLabel = 'R (高)'; }
-                    else { pitchLabel = 'R'; }
-                }
-
-                if (note._f0Hz) {
-                    pitchLabel += ` (${note._f0Hz}Hz)`;
+                    pitchLabel = 'R';
                 }
 
                 chip.className = `note-chip ${toneClass}`;
@@ -264,5 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function escapeHtml(str) {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function midiToNoteName(midi) {
+        const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
     }
 });
