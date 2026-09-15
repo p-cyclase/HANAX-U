@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const betaInput = document.getElementById('betaInput');
     const fbInput = document.getElementById('fbInput');
     const normalizeInput = document.getElementById('normalizeInput');
+    const singerMappingsContainer = document.getElementById('singerMappings');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentFile = null;
     let convertedResult = null;
+    const singerMappings = new Map();
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -78,9 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             convertedResult = convertCinkToUstx(rawData, {
                 portamentoLengthMs, bpm, alpha, beta, fbHz,
-                normalize: Number.isFinite(normalize) ? normalize : 50
+                normalize: Number.isFinite(normalize) ? normalize : 50,
+                singerMappings: Object.fromEntries(singerMappings)
             });
             renderPreview(convertedResult);
+            renderSingerMappings(convertedResult.stats.lines);
 
             downloadBtn.disabled = false;
         } catch (err) {
@@ -191,12 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ustxDict.tracks.forEach((track, idx) => {
             const part = ustxDict.voice_parts[idx];
             const lineInfo = stats.lines[idx] || {};
-            const speakerName = lineInfo.speaker_name || "";
+            const speakerLabel = formatSpeakerLabel(lineInfo);
             const dialogueText = part.name;
 
             let formattedHeader = "";
-            if (speakerName) {
-                formattedHeader = `${speakerName}「${dialogueText}」`;
+            if (speakerLabel) {
+                formattedHeader = `${speakerLabel}「${dialogueText}」`;
             } else {
                 formattedHeader = `「${dialogueText}」`;
             }
@@ -246,6 +250,79 @@ document.addEventListener('DOMContentLoaded', () => {
         previewSection.style.display = 'flex';
     }
 
+    function renderSingerMappings(lines) {
+        const speakers = new Map();
+        lines.forEach(line => {
+            if (line.speaker_id && !speakers.has(line.speaker_id)) {
+                speakers.set(line.speaker_id, line);
+            }
+        });
+        singerMappingsContainer.innerHTML = '';
+
+        if (speakers.size === 0) {
+            const message = document.createElement('p');
+            message.className = 'mapping-empty';
+            message.textContent = 'マッピング可能な話者情報はありません。';
+            singerMappingsContainer.appendChild(message);
+            return;
+        }
+
+        speakers.forEach((speaker, speakerId) => {
+            const mapping = singerMappings.get(speakerId) || {};
+            const item = document.createElement('div');
+            item.className = 'singer-mapping-item';
+
+            const speakerLabel = document.createElement('div');
+            speakerLabel.className = 'mapping-speaker';
+            speakerLabel.textContent = formatSpeakerLabel(speaker);
+
+            const singerInput = document.createElement('input');
+            singerInput.type = 'text';
+            singerInput.placeholder = 'singer名（任意）';
+            singerInput.value = mapping.singer || '';
+            singerInput.setAttribute('aria-label', `${formatSpeakerLabel(speaker)} の singer名`);
+
+            const phonemizerSelect = createMappingSelect([
+                { value: 'OpenUtau.Core.DefaultPhonemizer', label: 'DEFAULT' },
+                { value: 'OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer', label: 'JA VCV & CVVC' }
+            ], mapping.phonemizer || 'OpenUtau.Core.DefaultPhonemizer', 'phonemizer');
+            const rendererSelect = createMappingSelect(['CLASSIC', 'WORLDLINE-R'], mapping.renderer || 'CLASSIC', 'renderer');
+
+            const updateMapping = () => {
+                const singer = singerInput.value.trim();
+                if (singer) {
+                    singerMappings.set(speakerId, {
+                        singer,
+                        phonemizer: phonemizerSelect.value,
+                        renderer: rendererSelect.value
+                    });
+                } else {
+                    singerMappings.delete(speakerId);
+                }
+                if (currentFile) processFile(currentFile);
+            };
+            [singerInput, phonemizerSelect, rendererSelect].forEach(control => control.addEventListener('change', updateMapping));
+
+            item.append(speakerLabel, singerInput, phonemizerSelect, rendererSelect);
+            singerMappingsContainer.appendChild(item);
+        });
+    }
+
+    function createMappingSelect(values, selectedValue, label) {
+        const select = document.createElement('select');
+        select.setAttribute('aria-label', label);
+        values.forEach(entry => {
+            const value = typeof entry === 'string' ? entry : entry.value;
+            const displayLabel = typeof entry === 'string' ? entry : entry.label;
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = displayLabel;
+            option.selected = value === selectedValue;
+            select.appendChild(option);
+        });
+        return select;
+    }
+
     downloadBtn.addEventListener('click', () => {
         if (!convertedResult || !currentFile) return;
 
@@ -270,5 +347,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function midiToNoteName(midi) {
         const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+    }
+
+    function formatSpeakerLabel(line) {
+        const speakerName = line.speaker_name || "";
+        const styleName = line.style_name || "";
+        if (!speakerName) return "";
+        return styleName ? `${speakerName}（${styleName}）` : speakerName;
     }
 });

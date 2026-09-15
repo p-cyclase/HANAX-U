@@ -194,7 +194,29 @@ function resolveExportOptions(options = {}) {
     const normalize = Number.isFinite(options.normalize)
         ? Math.max(0, Math.min(100, options.normalize))
         : 50;
-    return { normalize };
+    const singerMappings = options.singerMappings && typeof options.singerMappings === "object"
+        ? options.singerMappings
+        : {};
+    return { normalize, singerMappings };
+}
+
+const SUPPORTED_PHONEMIZERS = new Set([
+    "OpenUtau.Core.DefaultPhonemizer",
+    "OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer"
+]);
+const SUPPORTED_RENDERERS = new Set(["CLASSIC", "WORLDLINE-R"]);
+
+function resolveSingerMapping(line, singerMappings) {
+    const mapping = singerMappings[line.speaker_id];
+    const singer = typeof mapping?.singer === "string" ? mapping.singer.trim() : "";
+    if (!singer) return null;
+    return {
+        singer,
+        phonemizer: SUPPORTED_PHONEMIZERS.has(mapping.phonemizer)
+            ? mapping.phonemizer
+            : "OpenUtau.Core.DefaultPhonemizer",
+        renderer: SUPPORTED_RENDERERS.has(mapping.renderer) ? mapping.renderer : "CLASSIC"
+    };
 }
 
 /** Stage 2: turn prosody data into a format-neutral note sequence. */
@@ -227,18 +249,21 @@ function generateNoteSequence(prosodyProject, options = {}) {
 function exportNoteSequenceToUstx(noteSequence, options = {}) {
     const { bpm } = noteSequence.options;
     const exportOptions = resolveExportOptions(options);
-    const tracks = noteSequence.noteParts.map((_, idx) => ({
-        phonemizer: "OpenUtau.Core.DefaultPhonemizer",
-        renderer_settings: {},
-        track_name: String(idx + 1).padStart(4, "0"),
-        track_color: "Blue",
-        mute: false,
-        solo: false,
-        volume: 0,
-        pan: 0,
-        track_expressions: [],
-        voice_color_names: [""]
-    }));
+    const tracks = noteSequence.noteParts.map((_, idx) => {
+        const mapping = resolveSingerMapping(noteSequence.lines[idx], exportOptions.singerMappings);
+        return {
+            ...(mapping ? { singer: mapping.singer } : {}),
+            phonemizer: mapping?.phonemizer || "OpenUtau.Core.DefaultPhonemizer",
+            renderer_settings: mapping ? { renderer: mapping.renderer } : {},
+            track_name: String(idx + 1).padStart(3, "0"),
+            track_color: "Blue",
+            mute: false,
+            solo: false,
+            volume: 0,
+            pan: 0,
+            track_expressions: []
+        };
+    });
     const voiceParts = noteSequence.noteParts.map((part, idx) => ({
         duration: part.duration,
         name: part.name,
@@ -307,12 +332,12 @@ function parseDialogueLines(data) {
                 if (typeof tb === 'object' && tb !== null) {
                     const rawText = tb.text || tb.plain_text || `Line_${String(idx + 1).padStart(4, "0")}`;
                     const text = sanitizeText(rawText) || `Line_${String(idx + 1).padStart(4, "0")}`;
-                    const speaker = sanitizeText(tb.speakerName || tb.speaker_name || "");
+                    const speakerIdentity = extractSpeakerIdentity(tb);
                     const prosody = tb.prosodyDetail || tb.accent_phrases || [];
                     const accentPhrases = normalizeAccentPhrases(prosody) || [];
 
                     lines.push({
-                        speaker_name: speaker,
+                        ...speakerIdentity,
                         text: text,
                         accent_phrases: accentPhrases.length > 0 ? accentPhrases : makeAccentPhrasesFromText(text),
                         pause_len: tb.pauseLength
@@ -326,9 +351,9 @@ function parseDialogueLines(data) {
             keys.forEach((key, idx) => {
                 const query = queryMap[key] || {};
                 const text = sanitizeText(textMap[key] || query.text || `Line ${idx + 1}`);
-                const speaker = sanitizeText(query.speakerName || "");
+                const speakerIdentity = extractSpeakerIdentity(query);
                 lines.push({
-                    speaker_name: speaker,
+                    ...speakerIdentity,
                     text: text,
                     accent_phrases: normalizeAccentPhrases(query.accent_phrases || query.prosodyDetail)
                 });
@@ -345,7 +370,7 @@ function parseDialogueLines(data) {
                 const val = data[key];
                 if (val && typeof val === 'object' && (val.accent_phrases || val.prosodyDetail)) {
                     lines.push({
-                        speaker_name: sanitizeText(val.speakerName || ""),
+                        ...extractSpeakerIdentity(val),
                         text: sanitizeText(val.text || key),
                         accent_phrases: normalizeAccentPhrases(val.accent_phrases || val.prosodyDetail)
                     });
@@ -392,18 +417,32 @@ function normalizeAccentPhrases(prosody) {
 
 function extractDialogueItem(item, idx) {
     const text = sanitizeText(item.text || item.plain_text || item.title || `Line_${String(idx + 1).padStart(4, "0")}`);
-    const speaker = sanitizeText(item.speakerName || item.speaker_name || "");
     let accentPhrases = item.accent_phrases || item.prosodyDetail;
     if (!accentPhrases && item.audio_query) accentPhrases = item.audio_query.accent_phrases || item.audio_query.prosodyDetail;
     if (!accentPhrases && item.query) accentPhrases = item.query.accent_phrases || item.query.prosodyDetail;
 
     return {
-        speaker_name: speaker,
+        ...extractSpeakerIdentity(item),
         text: text,
         accent_phrases: (() => {
             const normalized = normalizeAccentPhrases(accentPhrases);
             return normalized.length > 0 ? normalized : makeAccentPhrasesFromText(text);
         })()
+    };
+}
+
+function extractSpeakerIdentity(source) {
+    const speakerName = sanitizeText(source.speakerName || source.speaker_name || "");
+    const styleName = sanitizeText(source.styleName || source.style_name || "");
+    const speakerUuid = sanitizeText(source.speakerUuid || source.speaker_uuid || "");
+    const rawStyleId = source.styleId !== undefined ? source.styleId : source.style_id;
+    const styleId = rawStyleId === undefined || rawStyleId === null || rawStyleId === "" ? null : rawStyleId;
+    return {
+        speaker_name: speakerName,
+        speaker_uuid: speakerUuid,
+        style_id: styleId,
+        style_name: styleName,
+        speaker_id: speakerUuid && styleId !== null ? `${speakerUuid}:${styleId}` : ""
     };
 }
 

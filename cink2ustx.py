@@ -291,6 +291,23 @@ def sanitize_text(text: str) -> str:
         return ""
     return text.replace('\ufffd', '').strip()
 
+
+def extract_speaker_identity(source: Dict[str, Any]) -> Dict[str, Any]:
+    """Preserves source-speaker data for later OpenUtau singer mapping."""
+    speaker_name = sanitize_text(str(source.get("speakerName") or source.get("speaker_name") or ""))
+    style_name = sanitize_text(str(source.get("styleName") or source.get("style_name") or ""))
+    speaker_uuid = sanitize_text(str(source.get("speakerUuid") or source.get("speaker_uuid") or ""))
+    style_id = source.get("styleId", source.get("style_id"))
+    if style_id == "":
+        style_id = None
+    return {
+        "speaker_name": speaker_name,
+        "speaker_uuid": speaker_uuid,
+        "style_id": style_id,
+        "style_name": style_name,
+        "speaker_id": f"{speaker_uuid}:{style_id}" if speaker_uuid and style_id is not None else "",
+    }
+
 def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
     lines = []
     
@@ -301,7 +318,7 @@ def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
                     continue
                 raw_text = tb.get("text") or tb.get("plain_text") or f"Line_{idx+1:04d}"
                 text = sanitize_text(str(raw_text)) or f"Line_{idx+1:04d}"
-                speaker_name = sanitize_text(str(tb.get("speakerName") or tb.get("speaker_name") or ""))
+                speaker_identity = extract_speaker_identity(tb)
                 prosody = tb.get("prosodyDetail") or tb.get("accent_phrases") or []
                 
                 accent_phrases = []
@@ -325,7 +342,7 @@ def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
                         accent_phrases.append(phrase)
                 
                 lines.append({
-                    "speaker_name": speaker_name,
+                    **speaker_identity,
                     "text": text,
                     "accent_phrases": accent_phrases,
                     "pause_len": tb.get("pauseLength")
@@ -337,9 +354,8 @@ def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
             for idx, key in enumerate(keys):
                 query = query_map.get(key, {})
                 text = sanitize_text(str(text_map.get(key, query.get("text", f"Line {idx+1}"))))
-                speaker = sanitize_text(str(query.get("speakerName", "")))
                 lines.append({
-                    "speaker_name": speaker,
+                    **extract_speaker_identity(query),
                     "text": text,
                     "accent_phrases": normalize_accent_phrases(query.get("accent_phrases", []))
                 })
@@ -353,10 +369,9 @@ def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
             for key, val in data.items():
                 if isinstance(val, dict) and ("accent_phrases" in val or "prosodyDetail" in val):
                     text = sanitize_text(str(val.get("text", key)))
-                    speaker = sanitize_text(str(val.get("speakerName", "")))
                     prosody = val.get("prosodyDetail") or val.get("accent_phrases")
                     lines.append({
-                        "speaker_name": speaker,
+                        **extract_speaker_identity(val),
                         "text": text,
                         "accent_phrases": normalize_accent_phrases(prosody)
                     })
@@ -392,7 +407,6 @@ def normalize_accent_phrases(prosody: Any) -> List[Dict[str, Any]]:
 
 def extract_dialogue_item(item: Dict[str, Any], idx: int) -> Dict[str, Any]:
     text = sanitize_text(str(item.get("text") or item.get("plain_text") or item.get("title") or f"Line_{idx+1:04d}"))
-    speaker = sanitize_text(str(item.get("speakerName") or item.get("speaker_name") or ""))
     accent_phrases = item.get("accent_phrases") or item.get("prosodyDetail")
     if accent_phrases is None and "audio_query" in item:
         accent_phrases = item.get("audio_query", {}).get("accent_phrases") or item.get("audio_query", {}).get("prosodyDetail")
@@ -400,7 +414,7 @@ def extract_dialogue_item(item: Dict[str, Any], idx: int) -> Dict[str, Any]:
         accent_phrases = item.get("query", {}).get("accent_phrases") or item.get("query", {}).get("prosodyDetail")
     
     return {
-        "speaker_name": speaker,
+        **extract_speaker_identity(item),
         "text": text,
         "accent_phrases": normalize_accent_phrases(accent_phrases)
     }
@@ -721,20 +735,35 @@ def generate_note_sequence(prosody_project: Dict[str, Any], portamento_length: i
     }
 
 
-def export_note_sequence_to_ustx(note_sequence: Dict[str, Any]) -> Dict[str, Any]:
+SUPPORTED_PHONEMIZERS = {
+    "OpenUtau.Core.DefaultPhonemizer",
+    "OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer",
+}
+SUPPORTED_RENDERERS = {"CLASSIC", "WORLDLINE-R"}
+
+
+def export_note_sequence_to_ustx(note_sequence: Dict[str, Any],
+                                 singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Stage 3: exports a note sequence as an OpenUtau .ustx dictionary."""
     bpm = note_sequence["options"]["bpm"]
     lines = note_sequence["lines"]
+    singer_mappings = singer_mappings or {}
     tracks = []
     voice_parts = []
     
     for idx, line in enumerate(lines):
-        track_name = f"{idx + 1:04d}"
+        track_name = f"{idx + 1:03d}"
         part_name = line.get("text", f"Line {idx+1}")
         
-        tracks.append({
-            "phonemizer": "OpenUtau.Core.DefaultPhonemizer",
-            "renderer_settings": {},
+        mapping = singer_mappings.get(line.get("speaker_id", ""), {})
+        singer = str(mapping.get("singer", "")).strip() if isinstance(mapping, dict) else ""
+        phonemizer = mapping.get("phonemizer") if isinstance(mapping, dict) else None
+        renderer = mapping.get("renderer") if isinstance(mapping, dict) else None
+        track = {
+            "phonemizer": phonemizer if singer and phonemizer in SUPPORTED_PHONEMIZERS
+            else "OpenUtau.Core.DefaultPhonemizer",
+            "renderer_settings": {"renderer": renderer}
+            if singer and renderer in SUPPORTED_RENDERERS else ({"renderer": "CLASSIC"} if singer else {}),
             "track_name": track_name,
             "track_color": "Blue",
             "mute": False,
@@ -742,8 +771,10 @@ def export_note_sequence_to_ustx(note_sequence: Dict[str, Any]) -> Dict[str, Any
             "volume": 0,
             "pan": 0,
             "track_expressions": [],
-            "voice_color_names": [""]
-        })
+        }
+        if singer:
+            track["singer"] = singer
+        tracks.append(track)
         
         note_part = note_sequence["parts"][idx]
         
@@ -796,11 +827,12 @@ def export_note_sequence_to_ustx(note_sequence: Dict[str, Any]) -> Dict[str, Any
 
 
 def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int = 180,
-                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0) -> Dict[str, Any]:
+                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0,
+                         singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Backward-compatible entry point composed from the three conversion stages."""
     prosody_project = import_cink_to_prosody_project(cink_data)
     note_sequence = generate_note_sequence(prosody_project, portamento_length, bpm, alpha, beta, fb_hz)
-    return export_note_sequence_to_ustx(note_sequence)
+    return export_note_sequence_to_ustx(note_sequence, singer_mappings)
 
 def save_ustx_file(ustx_dict: Dict[str, Any], output_path: str):
     try:

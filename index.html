@@ -73,6 +73,11 @@
                         <div class="option-copy"><label for="normalizeInput">ノーマライズ</label><p>USTX出力時のノーマライズ既定値です。OpenUtau上で音量の基準として使われます。</p></div>
                         <input type="number" id="normalizeInput" value="50" min="0" max="100" step="1">
                     </div>
+                    <div class="singer-mapping-section">
+                        <h3>話者マッピング</h3>
+                        <p class="mapping-help">話者ごとにsinger、phonemizer、rendererを指定できます。空欄の場合は出力しません。<br>singerはSingersフォルダ内のフォルダ名を直接入力してください。</p>
+                        <div id="singerMappings" class="singer-mappings" aria-live="polite"></div>
+                    </div>
                 </section>
                 <button id="downloadBtn" class="btn-primary" disabled>
                     <span>💾 .ustx をダウンロード</span>

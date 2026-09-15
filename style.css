@@ -213,6 +213,56 @@ header p {
     font-weight: 600;
 }
 
+.singer-mapping-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.singer-mapping-section h3 {
+    font-size: 0.95rem;
+}
+
+.mapping-help, .mapping-empty {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.singer-mappings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.singer-mapping-item {
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) minmax(160px, 1.3fr) minmax(180px, 1.2fr) minmax(120px, 0.8fr);
+    gap: 0.65rem;
+    align-items: center;
+    padding: 0.7rem;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--card-border);
+    border-radius: 0.5rem;
+}
+
+.mapping-speaker {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.singer-mapping-item input, .singer-mapping-item select {
+    width: 100%;
+    padding: 0.42rem 0.55rem;
+    color: var(--text-main);
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--card-border);
+    border-radius: 0.35rem;
+    font: inherit;
+}
+
 /* Action Buttons */
 .btn-primary {
     display: inline-flex;
@@ -406,4 +456,5 @@ header p {
     .option-group input[type="number"] { width: 100%; text-align: left; }
     .preview-controls { flex-direction: column; }
     .preview-controls .btn-primary { width: 100%; justify-content: center; }
+    .singer-mapping-item { grid-template-columns: 1fr; }
 }
