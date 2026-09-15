@@ -5,7 +5,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
-    const convertBtn = document.getElementById('convertBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const bpmInput = document.getElementById('bpmInput');
     const portamentoInput = document.getElementById('portamentoInput');
@@ -57,14 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
         dropzoneTitle.textContent = `選択中: ${file.name}`;
         dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
         
-        convertBtn.disabled = false;
         processFile(file);
     }
 
-    convertBtn.addEventListener('click', () => {
-        if (currentFile) {
-            processFile(currentFile);
-        }
+    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput].forEach(input => {
+        input.addEventListener('change', () => {
+            if (currentFile) processFile(currentFile);
+        });
     });
 
     async function processFile(file) {
@@ -218,8 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (note.lyric !== 'R') {
                     toneClass = 'tone-note';
                     pitchLabel = midiToNoteName(note.tone);
+                    // With the default Fb (150 Hz), Fujisaki-generated notes
+                    // usually cluster around MIDI 50–63 (D3–D#4). Map that
+                    // practical range across the full cool-to-warm palette.
+                    const normalizedTone = Math.max(0, Math.min(1, (note.tone - 50) / 13));
+                    chip.style.setProperty('--note-hue', String(220 - normalizedTone * 220));
                 } else {
-                    pitchLabel = 'R';
+                    pitchLabel = midiToNoteName(note.tone);
                 }
 
                 chip.className = `note-chip ${toneClass}`;

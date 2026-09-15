@@ -198,11 +198,6 @@ header p {
     font-weight: 600;
 }
 
-.action-group {
-    display: flex;
-    justify-content: flex-end;
-}
-
 /* Action Buttons */
 .btn-primary {
     display: inline-flex;
@@ -333,14 +328,15 @@ header p {
     border-radius: 0.3rem;
     font-size: 0.75rem;
     font-weight: 600;
-    min-width: 32px;
+    width: 50px;
+    min-width: 50px;
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .note-chip.tone-note {
-    background: rgba(6, 182, 212, 0.2);
-    border-color: rgba(6, 182, 212, 0.45);
-    color: #a5f3fc;
+    background: hsl(var(--note-hue) 78% 54% / 0.20);
+    border-color: hsl(var(--note-hue) 82% 60% / 0.50);
+    color: hsl(var(--note-hue) 100% 86%);
 }
 .note-chip.tone-rest {
     background: rgba(100, 116, 139, 0.2);
@@ -351,6 +347,10 @@ header p {
 .note-lyric {
     font-size: 0.8rem;
     font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .note-pitch-tag {
@@ -374,5 +374,4 @@ header p {
 @media (max-width: 560px) {
     .option-group { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .option-group input[type="number"] { width: 100%; text-align: left; }
-    .action-group .btn-primary { width: 100%; justify-content: center; }
 }
