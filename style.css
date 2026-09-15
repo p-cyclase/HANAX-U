@@ -73,6 +73,12 @@ header p {
     font-size: 0.95rem;
 }
 
+header .disclaimer {
+    margin-top: 0.7rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
 .badge-bar {
     display: flex;
     justify-content: center;
@@ -231,6 +237,36 @@ header p {
 
 .expression-settings h3 {
     font-size: 0.95rem;
+}
+
+.track-name-setting select {
+    align-self: flex-start;
+    min-width: 180px;
+    padding: 0.48rem 0.6rem;
+    color: var(--text-main);
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--card-border);
+    border-radius: 0.35rem;
+    font: inherit;
+}
+
+.track-name-setting {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.track-name-setting .option-copy p + p {
+    margin-top: 0.45rem;
+}
+
+.track-name-setting .mapping-help {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
 }
 
 .expression-options {

@@ -210,7 +210,10 @@ function resolveExportOptions(options = {}) {
     const singerMappings = options.singerMappings && typeof options.singerMappings === "object"
         ? options.singerMappings
         : {};
-    return { expressionValues, normalize: expressionValues.norm, singerMappings };
+    const trackNameFormat = ["number", "number-text", "number-singer-text"].includes(options.trackNameFormat)
+        ? options.trackNameFormat
+        : "number";
+    return { expressionValues, normalize: expressionValues.norm, singerMappings, trackNameFormat };
 }
 
 const SUPPORTED_PHONEMIZERS = new Set([
@@ -230,6 +233,25 @@ function resolveSingerMapping(line, singerMappings) {
             : "OpenUtau.Core.DefaultPhonemizer",
         renderer: SUPPORTED_RENDERERS.has(mapping.renderer) ? mapping.renderer : "CLASSIC"
     };
+}
+
+function filenameFragment(value, maxLength) {
+    const safe = sanitizeText(value)
+        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+        .replace(/\s+/g, " ")
+        .replace(/[. ]+$/, "");
+    return Array.from(safe).slice(0, maxLength).join("");
+}
+
+function createTrackName(index, line, mapping, format) {
+    const ordinal = String(index + 1).padStart(3, "0");
+    if (format === "number") return ordinal;
+
+    const text = filenameFragment(line.text || "", 24);
+    if (format === "number-text") return text ? `${ordinal}_${text}` : ordinal;
+
+    const singerOrSpeaker = filenameFragment(mapping?.singer || line.speaker_name || line.speaker_uuid || "speaker", 8);
+    return text ? `${ordinal}_${singerOrSpeaker}_${text}` : `${ordinal}_${singerOrSpeaker}`;
 }
 
 /** Stage 2: turn prosody data into a format-neutral note sequence. */
@@ -264,11 +286,12 @@ function exportNoteSequenceToUstx(noteSequence, options = {}) {
     const exportOptions = resolveExportOptions(options);
     const tracks = noteSequence.noteParts.map((_, idx) => {
         const mapping = resolveSingerMapping(noteSequence.lines[idx], exportOptions.singerMappings);
+        const trackName = createTrackName(idx, noteSequence.lines[idx], mapping, exportOptions.trackNameFormat);
         return {
             ...(mapping ? { singer: mapping.singer } : {}),
             phonemizer: mapping?.phonemizer || "OpenUtau.Core.DefaultPhonemizer",
             renderer_settings: mapping ? { renderer: mapping.renderer } : {},
-            track_name: String(idx + 1).padStart(3, "0"),
+            track_name: trackName,
             track_color: "Blue",
             mute: false,
             solo: false,

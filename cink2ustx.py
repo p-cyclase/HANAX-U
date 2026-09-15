@@ -822,23 +822,45 @@ SUPPORTED_PHONEMIZERS = {
     "OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer",
 }
 SUPPORTED_RENDERERS = {"CLASSIC", "WORLDLINE-R"}
+TRACK_NAME_FORMATS = {"number", "number-text", "number-singer-text"}
+
+
+def filename_fragment(value: Any, max_length: int) -> str:
+    """Creates a short filename-safe suffix shared by USTX tracks and TXT files."""
+    text = sanitize_text(str(value))
+    text = "".join("_" if char in '<>:"/\\|?*' or ord(char) < 32 else char for char in text)
+    text = " ".join(text.split()).rstrip(". ")
+    return text[:max_length]
+
+
+def create_track_name(index: int, line: Dict[str, Any], singer: str, track_name_format: str) -> str:
+    ordinal = f"{index + 1:03d}"
+    if track_name_format == "number":
+        return ordinal
+    text = filename_fragment(line.get("text", ""), 24)
+    if track_name_format == "number-text":
+        return f"{ordinal}_{text}" if text else ordinal
+    singer_or_speaker = filename_fragment(singer or line.get("speaker_name") or line.get("speaker_uuid") or "speaker", 8)
+    return f"{ordinal}_{singer_or_speaker}_{text}" if text else f"{ordinal}_{singer_or_speaker}"
 
 
 def export_note_sequence_to_ustx(note_sequence: Dict[str, Any],
-                                 singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
+                                 singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None,
+                                 track_name_format: str = "number") -> Dict[str, Any]:
     """Stage 3: exports a note sequence as an OpenUtau .ustx dictionary."""
     bpm = note_sequence["options"]["bpm"]
     lines = note_sequence["lines"]
     singer_mappings = singer_mappings or {}
+    track_name_format = track_name_format if track_name_format in TRACK_NAME_FORMATS else "number"
     tracks = []
     voice_parts = []
     
     for idx, line in enumerate(lines):
-        track_name = f"{idx + 1:03d}"
         part_name = line.get("text", f"Line {idx+1}")
         
         mapping = singer_mappings.get(line.get("speaker_id", ""), {})
         singer = str(mapping.get("singer", "")).strip() if isinstance(mapping, dict) else ""
+        track_name = create_track_name(idx, line, singer, track_name_format)
         phonemizer = mapping.get("phonemizer") if isinstance(mapping, dict) else None
         renderer = mapping.get("renderer") if isinstance(mapping, dict) else None
         track = {
@@ -910,11 +932,12 @@ def export_note_sequence_to_ustx(note_sequence: Dict[str, Any],
 
 def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int = 180,
                          alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0,
-                         singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
+                         singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None,
+                         track_name_format: str = "number") -> Dict[str, Any]:
     """Backward-compatible entry point composed from the three conversion stages."""
     prosody_project = import_cink_to_prosody_project(cink_data)
     note_sequence = generate_note_sequence(prosody_project, portamento_length, bpm, alpha, beta, fb_hz)
-    return export_note_sequence_to_ustx(note_sequence, singer_mappings)
+    return export_note_sequence_to_ustx(note_sequence, singer_mappings, track_name_format)
 
 def save_ustx_file(ustx_dict: Dict[str, Any], output_path: str):
     try:

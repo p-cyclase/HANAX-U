@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const lpfInput = document.getElementById('lpfInput');
     const normalizeInput = document.getElementById('normalizeInput');
     const modInput = document.getElementById('modInput');
+    const trackNameFormatInput = document.getElementById('trackNameFormatInput');
     const singerMappingsContainer = document.getElementById('singerMappings');
 
     const previewSection = document.getElementById('previewSection');
@@ -67,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         processFile(file);
     }
 
-    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput, genInput, breInput, lpfInput, normalizeInput, modInput].forEach(input => {
+    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput, genInput, breInput, lpfInput, normalizeInput, modInput, trackNameFormatInput].forEach(input => {
         input.addEventListener('change', () => {
             if (currentFile) processFile(currentFile);
         });
@@ -92,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             convertedResult = convertCinkToUstx(rawData, {
                 portamentoLengthMs, bpm, alpha, beta, fbHz,
                 expressionValues,
+                trackNameFormat: trackNameFormatInput.value,
                 singerMappings: Object.fromEntries(singerMappings)
             });
             renderPreview(convertedResult);
