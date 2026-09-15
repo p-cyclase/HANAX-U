@@ -312,7 +312,9 @@ def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
     lines = []
     
     if isinstance(data, dict):
-        if "textBoxes" in data and isinstance(data["textBoxes"], list):
+        if is_voicevox_project(data):
+            return parse_voicevox_dialogue_lines(data)
+        elif "textBoxes" in data and isinstance(data["textBoxes"], list):
             for idx, tb in enumerate(data["textBoxes"]):
                 if not isinstance(tb, dict):
                     continue
@@ -382,6 +384,86 @@ def parse_dialogue_lines(data: Any) -> List[Dict[str, Any]]:
                 lines.append(extract_dialogue_item(item, idx))
     
     return [l for l in lines if l and l.get("accent_phrases")]
+
+
+def is_voicevox_project(data: Any) -> bool:
+    talk = data.get("talk") if isinstance(data, dict) else None
+    return isinstance(talk, dict) and isinstance(talk.get("audioKeys"), list) and isinstance(talk.get("audioItems"), dict)
+
+
+def extract_voicevox_speaker_identity(voice: Any) -> Dict[str, Any]:
+    voice = voice if isinstance(voice, dict) else {}
+    speaker_id = sanitize_text(str(voice.get("speakerId") or ""))
+    style_id = voice.get("styleId")
+    if style_id == "":
+        style_id = None
+    return {
+        "speaker_name": speaker_id,
+        "speaker_uuid": speaker_id,
+        "style_id": style_id,
+        "style_name": "" if style_id is None else str(style_id),
+        "speaker_id": f"{speaker_id}:{style_id}" if speaker_id and style_id is not None else "",
+    }
+
+
+def normalize_voicevox_accent_phrases(prosody: Any) -> List[Dict[str, Any]]:
+    if not isinstance(prosody, list):
+        return []
+    result = []
+    for phrase in prosody:
+        if not isinstance(phrase, dict) or not isinstance(phrase.get("moras"), list):
+            continue
+        accent_position = phrase.get("accent") if isinstance(phrase.get("accent"), int) else 0
+        moras = []
+        for index, mora in enumerate(phrase["moras"]):
+            text = voicevox_mora_to_hiragana(mora.get("text") or "") if isinstance(mora, dict) else ""
+            if text:
+                moras.append({"text": text, "accent": 1 if index + 1 == accent_position else 0, "phoneme": ""})
+        if not moras:
+            continue
+        normalized = {"moras": moras}
+        pause_mora = phrase.get("pauseMora")
+        if isinstance(pause_mora, dict):
+            normalized["pause_mora"] = True
+            normalized["pause_sec"] = float(pause_mora.get("vowelLength") or 0)
+        result.append(normalized)
+    return result
+
+
+def voicevox_mora_to_hiragana(text: Any) -> str:
+    """Converts VOICEVOX katakana mora lyrics to UTAU-friendly hiragana.
+
+    ヴ is retained so V-row aliases use forms such as ヴぁ, as requested.
+    """
+    result = []
+    for char in sanitize_text(str(text)):
+        code = ord(char)
+        result.append(chr(code - 0x60) if 0x30A1 <= code <= 0x30F3 else char)
+    return "".join(result)
+
+
+def parse_voicevox_dialogue_lines(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    talk = data["talk"]
+    audio_items = talk["audioItems"]
+    lines = []
+    for index, key in enumerate(talk["audioKeys"]):
+        item = audio_items.get(key)
+        if not isinstance(item, dict):
+            continue
+        text = sanitize_text(str(item.get("text") or f"Line {index + 1}"))
+        accent_phrases = normalize_voicevox_accent_phrases(item.get("query", {}).get("accentPhrases"))
+        lines.append({
+            **extract_voicevox_speaker_identity(item.get("voice")),
+            "text": text,
+            "accent_phrases": accent_phrases or make_accent_phrases_from_text(text),
+        })
+    return lines
+
+
+def make_accent_phrases_from_text(text: str) -> List[Dict[str, Any]]:
+    """Fallback for a VOICEVOX item whose saved query has no usable moras."""
+    moras = [{"text": char, "accent": 0, "phoneme": ""} for char in text if not char.isspace()]
+    return [{"moras": moras}] if moras else []
 
 def normalize_accent_phrases(prosody: Any) -> List[Dict[str, Any]]:
     if not isinstance(prosody, list):
@@ -706,11 +788,11 @@ def create_note_object(position: int, duration: int, tone: int, lyric: str,
     }
 
 def import_cink_to_prosody_project(cink_data: Any) -> Dict[str, Any]:
-    """Stage 1: imports COEIROINK data into format-neutral prosody data."""
+    """Stage 1: imports COEIROINK or VOICEVOX Talk data into format-neutral prosody data."""
     lines = parse_dialogue_lines(cink_data)
     if not lines:
-        raise ValueError("入力されたCOEIROINKデータ内に有効なセリフ（アクセント句）が見つかりませんでした。")
-    return {"source_format": "coeiroink", "lines": lines}
+        raise ValueError("入力されたプロジェクト内に有効なセリフ（アクセント句）が見つかりませんでした。")
+    return {"source_format": "voicevox" if is_voicevox_project(cink_data) else "coeiroink", "lines": lines}
 
 
 def generate_note_sequence(prosody_project: Dict[str, Any], portamento_length: int = 60,

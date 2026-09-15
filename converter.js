@@ -170,9 +170,9 @@ function quantizeFujisakiPitches(f0List) {
 function importCinkToProsodyProject(cinkData) {
     const lines = parseDialogueLines(cinkData);
     if (!lines || lines.length === 0) {
-        throw new Error("入力されたCOEIROINKデータ内に有効なセリフ（アクセント句）が見つかりませんでした。");
+        throw new Error("入力されたプロジェクト内に有効なセリフ（アクセント句）が見つかりませんでした。");
     }
-    return { sourceFormat: "coeiroink", lines };
+    return { sourceFormat: isVoicevoxProject(cinkData) ? "voicevox" : "coeiroink", lines };
 }
 
 function resolvePitchOptions(options = {}) {
@@ -343,7 +343,9 @@ function parseDialogueLines(data) {
     const lines = [];
 
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-        if (Array.isArray(data.textBoxes)) {
+        if (isVoicevoxProject(data)) {
+            return parseVoicevoxDialogueLines(data);
+        } else if (Array.isArray(data.textBoxes)) {
             data.textBoxes.forEach((tb, idx) => {
                 if (typeof tb === 'object' && tb !== null) {
                     const rawText = tb.text || tb.plain_text || `Line_${String(idx + 1).padStart(4, "0")}`;
@@ -402,6 +404,72 @@ function parseDialogueLines(data) {
     }
 
     return lines.filter(l => l && l.text && l.accent_phrases && l.accent_phrases.length > 0);
+}
+
+function isVoicevoxProject(data) {
+    return Boolean(data && typeof data === 'object' && data.talk &&
+        Array.isArray(data.talk.audioKeys) && data.talk.audioItems && typeof data.talk.audioItems === 'object');
+}
+
+function parseVoicevoxDialogueLines(data) {
+    const audioItems = data.talk.audioItems;
+    return data.talk.audioKeys.map((key, idx) => {
+        const item = audioItems[key];
+        if (!item || typeof item !== 'object') return null;
+        const text = sanitizeText(item.text || `Line ${idx + 1}`);
+        const accentPhrases = normalizeVoicevoxAccentPhrases(item.query?.accentPhrases);
+        return {
+            ...extractVoicevoxSpeakerIdentity(item.voice),
+            text,
+            accent_phrases: accentPhrases.length > 0 ? accentPhrases : makeAccentPhrasesFromText(text)
+        };
+    }).filter(Boolean);
+}
+
+function extractVoicevoxSpeakerIdentity(voice) {
+    const speakerId = sanitizeText(voice?.speakerId || "");
+    const rawStyleId = voice?.styleId;
+    const styleId = rawStyleId === undefined || rawStyleId === null || rawStyleId === "" ? null : rawStyleId;
+    return {
+        speaker_name: speakerId,
+        speaker_uuid: speakerId,
+        style_id: styleId,
+        style_name: styleId === null ? "" : String(styleId),
+        speaker_id: speakerId && styleId !== null ? `${speakerId}:${styleId}` : ""
+    };
+}
+
+function normalizeVoicevoxAccentPhrases(prosody) {
+    if (!Array.isArray(prosody)) return [];
+    return prosody.map(phrase => {
+        if (!phrase || typeof phrase !== 'object' || !Array.isArray(phrase.moras)) return null;
+        const accentPosition = Number.isInteger(phrase.accent) ? phrase.accent : 0;
+        const moras = phrase.moras.map((mora, index) => ({
+            text: voicevoxMoraToHiragana(mora?.text || ""),
+            accent: index + 1 === accentPosition ? 1 : 0,
+            phoneme: ""
+        })).filter(mora => mora.text);
+        if (moras.length === 0) return null;
+        const pauseMora = phrase.pauseMora;
+        return {
+            moras,
+            ...(pauseMora ? {
+                pause_mora: true,
+                pause_sec: Number(pauseMora.vowelLength) || 0
+            } : {})
+        };
+    }).filter(Boolean);
+}
+
+function voicevoxMoraToHiragana(text) {
+    return Array.from(sanitizeText(text)).map(char => {
+        const code = char.codePointAt(0);
+        // Keep ヴ as written for UTAU voicebanks that assign V-row aliases to it,
+        // while converting the following small vowel (ヴァ -> ヴぁ).
+        return code >= 0x30A1 && code <= 0x30F3
+            ? String.fromCodePoint(code - 0x60)
+            : char;
+    }).join('');
 }
 
 function normalizeAccentPhrases(prosody) {
