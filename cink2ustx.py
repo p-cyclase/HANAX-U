@@ -691,13 +691,40 @@ def create_note_object(position: int, duration: int, tone: int, lyric: str,
         "phoneme_overrides": []
     }
 
-def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int = 180,
-                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0) -> Dict[str, Any]:
-    """Constructs the complete OpenUtau .ustx project dictionary matching official schema."""
+def import_cink_to_prosody_project(cink_data: Any) -> Dict[str, Any]:
+    """Stage 1: imports COEIROINK data into format-neutral prosody data."""
     lines = parse_dialogue_lines(cink_data)
     if not lines:
         raise ValueError("入力されたCOEIROINKデータ内に有効なセリフ（アクセント句）が見つかりませんでした。")
-    
+    return {"source_format": "coeiroink", "lines": lines}
+
+
+def generate_note_sequence(prosody_project: Dict[str, Any], portamento_length: int = 60,
+                           bpm: int = 180, alpha: float = 3.0, beta: float = 20.0,
+                           fb_hz: float = 150.0) -> Dict[str, Any]:
+    """Stage 2: generates format-neutral notes from prosody data."""
+    parts = []
+    for idx, line in enumerate(prosody_project["lines"]):
+        notes = build_notes_for_dialogue(line, portamento_length=portamento_length, bpm=bpm,
+                                         alpha=alpha, beta=beta, fb_hz=fb_hz)
+        parts.append({
+            "name": line.get("text", f"Line {idx+1}"),
+            "duration": notes[-1]["position"] + notes[-1]["duration"] if notes else 0,
+            "notes": notes,
+        })
+    return {
+        "source_format": prosody_project["source_format"],
+        "lines": prosody_project["lines"],
+        "parts": parts,
+        "options": {"bpm": bpm, "portamento_length": portamento_length, "alpha": alpha,
+                    "beta": beta, "fb_hz": fb_hz},
+    }
+
+
+def export_note_sequence_to_ustx(note_sequence: Dict[str, Any]) -> Dict[str, Any]:
+    """Stage 3: exports a note sequence as an OpenUtau .ustx dictionary."""
+    bpm = note_sequence["options"]["bpm"]
+    lines = note_sequence["lines"]
     tracks = []
     voice_parts = []
     
@@ -718,17 +745,15 @@ def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int =
             "voice_color_names": [""]
         })
         
-        notes = build_notes_for_dialogue(line, portamento_length=portamento_length, bpm=bpm,
-                                        alpha=alpha, beta=beta, fb_hz=fb_hz)
-        part_duration = notes[-1]["position"] + notes[-1]["duration"] if notes else 0
+        note_part = note_sequence["parts"][idx]
         
         voice_parts.append({
-            "duration": part_duration,
-            "name": part_name,
+            "duration": note_part["duration"],
+            "name": note_part["name"],
             "comment": "",
             "track_no": idx,
             "position": 0,
-            "notes": notes,
+            "notes": note_part["notes"],
             "curves": []
         })
     
@@ -768,6 +793,14 @@ def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int =
     }
     
     return ustx
+
+
+def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int = 180,
+                         alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0) -> Dict[str, Any]:
+    """Backward-compatible entry point composed from the three conversion stages."""
+    prosody_project = import_cink_to_prosody_project(cink_data)
+    note_sequence = generate_note_sequence(prosody_project, portamento_length, bpm, alpha, beta, fb_hz)
+    return export_note_sequence_to_ustx(note_sequence)
 
 def save_ustx_file(ustx_dict: Dict[str, Any], output_path: str):
     try:

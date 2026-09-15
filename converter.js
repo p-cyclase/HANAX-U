@@ -166,10 +166,16 @@ function quantizeFujisakiPitches(f0List) {
     return mapping;
 }
 
-/**
- * Main conversion function for JS environment.
- */
-function convertCinkToUstx(cinkData, options = {}) {
+/** Stage 1: import a source project into format-neutral prosody data. */
+function importCinkToProsodyProject(cinkData) {
+    const lines = parseDialogueLines(cinkData);
+    if (!lines || lines.length === 0) {
+        throw new Error("入力されたCOEIROINKデータ内に有効なセリフ（アクセント句）が見つかりませんでした。");
+    }
+    return { sourceFormat: "coeiroink", lines };
+}
+
+function resolvePitchOptions(options = {}) {
     const bpm = options.bpm !== undefined ? options.bpm : 180;
     // portamentoLength is retained only for callers of the former tick-based
     // API; USTX pitch-point x values and the UI now use milliseconds.
@@ -181,49 +187,59 @@ function convertCinkToUstx(cinkData, options = {}) {
     const alpha = options.alpha !== undefined ? options.alpha : 3.0;
     const beta = options.beta !== undefined ? options.beta : 20.0;
     const fbHz = options.fbHz !== undefined ? options.fbHz : 150.0;
+    return { bpm, portamentoLengthMs, alpha, beta, fbHz };
+}
 
-    const lines = parseDialogueLines(cinkData);
-
-    if (!lines || lines.length === 0) {
-        throw new Error("入力されたCOEIROINKデータ内に有効なセリフ（アクセント句）が見つかりませんでした。");
-    }
-
-    const tracks = [];
-    const voiceParts = [];
+/** Stage 2: turn prosody data into a format-neutral note sequence. */
+function generateNoteSequence(prosodyProject, options = {}) {
+    const pitchOptions = resolvePitchOptions(options);
+    const lines = prosodyProject.lines;
+    const noteParts = [];
     let totalNotesCount = 0;
-    let pitchStats = { semitone: 0, rest: 0, phraseResets: 0, f0Min: 999, f0Max: 0 };
+    const pitchStats = { semitone: 0, rest: 0, phraseResets: 0, f0Min: 999, f0Max: 0 };
 
     lines.forEach((line, idx) => {
-        const trackName = String(idx + 1).padStart(4, "0");
         const partName = line.text || `Line ${idx + 1}`;
-
-        tracks.push({
-            phonemizer: "OpenUtau.Core.DefaultPhonemizer",
-            renderer_settings: {},
-            track_name: trackName,
-            track_color: "Blue",
-            mute: false,
-            solo: false,
-            volume: 0,
-            pan: 0,
-            track_expressions: [],
-            voice_color_names: [""]
-        });
-
-        const notes = buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, pitchStats);
+        const notes = buildNotesForDialogue(line, pitchOptions.portamentoLengthMs, pitchOptions.bpm,
+            pitchOptions.alpha, pitchOptions.beta, pitchOptions.fbHz, pitchStats);
         totalNotesCount += notes.length;
         const partDuration = notes.length > 0 ? (notes[notes.length - 1].position + notes[notes.length - 1].duration) : 0;
-
-        voiceParts.push({
-            duration: partDuration,
-            name: partName,
-            comment: "",
-            track_no: idx,
-            position: 0,
-            notes: notes,
-            curves: []
-        });
+        noteParts.push({ name: partName, duration: partDuration, notes });
     });
+
+    return {
+        sourceFormat: prosodyProject.sourceFormat,
+        lines,
+        options: pitchOptions,
+        noteParts,
+        stats: { lineCount: lines.length, totalNotes: totalNotesCount, pitchStats, lines }
+    };
+}
+
+/** Stage 3: export a note sequence as an OpenUtau USTX project. */
+function exportNoteSequenceToUstx(noteSequence) {
+    const { bpm } = noteSequence.options;
+    const tracks = noteSequence.noteParts.map((_, idx) => ({
+        phonemizer: "OpenUtau.Core.DefaultPhonemizer",
+        renderer_settings: {},
+        track_name: String(idx + 1).padStart(4, "0"),
+        track_color: "Blue",
+        mute: false,
+        solo: false,
+        volume: 0,
+        pan: 0,
+        track_expressions: [],
+        voice_color_names: [""]
+    }));
+    const voiceParts = noteSequence.noteParts.map((part, idx) => ({
+        duration: part.duration,
+        name: part.name,
+        comment: "",
+        track_no: idx,
+        position: 0,
+        notes: part.notes,
+        curves: []
+    }));
 
     const ustxDict = {
         name: "HANAX-U Export",
@@ -261,17 +277,14 @@ function convertCinkToUstx(cinkData, options = {}) {
     };
 
     const ustxYaml = generateUstxYaml(ustxDict);
+    return { ustxDict, ustxYaml };
+}
 
-    return {
-        ustxDict,
-        ustxYaml,
-        stats: {
-            lineCount: lines.length,
-            totalNotes: totalNotesCount,
-            pitchStats: pitchStats,
-            lines: lines
-        }
-    };
+/** Backward-compatible application entry point composed from the three stages. */
+function convertCinkToUstx(cinkData, options = {}) {
+    const prosodyProject = importCinkToProsodyProject(cinkData);
+    const noteSequence = generateNoteSequence(prosodyProject, options);
+    return { ...exportNoteSequenceToUstx(noteSequence), stats: noteSequence.stats };
 }
 
 function parseDialogueLines(data) {
@@ -623,5 +636,12 @@ function formatScalar(val) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { convertCinkToUstx, parseDialogueLines, quantizeFujisakiPitches };
+    module.exports = {
+        importCinkToProsodyProject,
+        generateNoteSequence,
+        exportNoteSequenceToUstx,
+        convertCinkToUstx,
+        parseDialogueLines,
+        quantizeFujisakiPitches
+    };
 }
