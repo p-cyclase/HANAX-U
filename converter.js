@@ -190,6 +190,13 @@ function resolvePitchOptions(options = {}) {
     return { bpm, portamentoLengthMs, alpha, beta, fbHz };
 }
 
+function resolveExportOptions(options = {}) {
+    const normalize = Number.isFinite(options.normalize)
+        ? Math.max(0, Math.min(100, options.normalize))
+        : 50;
+    return { normalize };
+}
+
 /** Stage 2: turn prosody data into a format-neutral note sequence. */
 function generateNoteSequence(prosodyProject, options = {}) {
     const pitchOptions = resolvePitchOptions(options);
@@ -217,8 +224,9 @@ function generateNoteSequence(prosodyProject, options = {}) {
 }
 
 /** Stage 3: export a note sequence as an OpenUtau USTX project. */
-function exportNoteSequenceToUstx(noteSequence) {
+function exportNoteSequenceToUstx(noteSequence, options = {}) {
     const { bpm } = noteSequence.options;
+    const exportOptions = resolveExportOptions(options);
     const tracks = noteSequence.noteParts.map((_, idx) => ({
         phonemizer: "OpenUtau.Core.DefaultPhonemizer",
         renderer_settings: {},
@@ -251,7 +259,10 @@ function exportNoteSequenceToUstx(noteSequence) {
         bpm: bpm,
         beat_per_bar: 4,
         beat_unit: 4,
-        expressions: DEFAULT_EXPRESSIONS,
+        expressions: {
+            ...DEFAULT_EXPRESSIONS,
+            norm: { ...DEFAULT_EXPRESSIONS.norm, default_value: exportOptions.normalize }
+        },
         exp_selectors: [
             "dyn", "pitd", "clr", "eng", "vel", "vol", "atk", "dec", "gen", "bre"
         ],
@@ -284,7 +295,7 @@ function exportNoteSequenceToUstx(noteSequence) {
 function convertCinkToUstx(cinkData, options = {}) {
     const prosodyProject = importCinkToProsodyProject(cinkData);
     const noteSequence = generateNoteSequence(prosodyProject, options);
-    return { ...exportNoteSequenceToUstx(noteSequence), stats: noteSequence.stats };
+    return { ...exportNoteSequenceToUstx(noteSequence, options), stats: noteSequence.stats };
 }
 
 function parseDialogueLines(data) {
@@ -640,6 +651,7 @@ if (typeof module !== 'undefined' && module.exports) {
         importCinkToProsodyProject,
         generateNoteSequence,
         exportNoteSequenceToUstx,
+        resolveExportOptions,
         convertCinkToUstx,
         parseDialogueLines,
         quantizeFujisakiPitches

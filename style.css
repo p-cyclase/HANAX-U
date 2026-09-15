@@ -164,6 +164,21 @@ header p {
     flex-wrap: wrap;
 }
 
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    background: rgba(15, 23, 42, 0.22);
+}
+
+.settings-section h2 {
+    font-size: 1rem;
+    color: var(--accent-cyan);
+}
+
 .option-group {
     display: flex;
     align-items: center;
@@ -262,6 +277,21 @@ header p {
     display: none;
     flex-direction: column;
     gap: 1rem;
+}
+
+.preview-controls {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.export-settings {
+    flex: 1;
+}
+
+.preview-controls .btn-primary {
+    align-self: center;
+    white-space: nowrap;
 }
 
 .preview-header {
@@ -374,4 +404,6 @@ header p {
 @media (max-width: 560px) {
     .option-group { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .option-group input[type="number"] { width: 100%; text-align: left; }
+    .preview-controls { flex-direction: column; }
+    .preview-controls .btn-primary { width: 100%; justify-content: center; }
 }

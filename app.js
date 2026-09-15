@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const alphaInput = document.getElementById('alphaInput');
     const betaInput = document.getElementById('betaInput');
     const fbInput = document.getElementById('fbInput');
+    const normalizeInput = document.getElementById('normalizeInput');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -59,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         processFile(file);
     }
 
-    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput].forEach(input => {
+    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput, normalizeInput].forEach(input => {
         input.addEventListener('change', () => {
             if (currentFile) processFile(currentFile);
         });
@@ -73,8 +74,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const alpha = parseFloat(alphaInput.value) || 3.0;
             const beta = parseFloat(betaInput.value) || 20.0;
             const fbHz = parseFloat(fbInput.value) || 150.0;
+            const normalize = parseInt(normalizeInput.value, 10);
 
-            convertedResult = convertCinkToUstx(rawData, { portamentoLengthMs, bpm, alpha, beta, fbHz });
+            convertedResult = convertCinkToUstx(rawData, {
+                portamentoLengthMs, bpm, alpha, beta, fbHz,
+                normalize: Number.isFinite(normalize) ? normalize : 50
+            });
             renderPreview(convertedResult);
 
             downloadBtn.disabled = false;

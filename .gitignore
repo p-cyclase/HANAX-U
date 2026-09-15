@@ -1,6 +1,9 @@
 # Ignore sample directory
 sample/
 
+# Reference materials (papers, specifications, etc.)
+material/
+
 # Python cache
 __pycache__/
 *.py[cod]
