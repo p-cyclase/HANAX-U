@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const downloadBtn = document.getElementById('downloadBtn');
+    const downloadZipBtn = document.getElementById('downloadZipBtn');
     const bpmInput = document.getElementById('bpmInput');
     const portamentoInput = document.getElementById('portamentoInput');
     const alphaInput = document.getElementById('alphaInput');
@@ -97,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSingerMappings(convertedResult.stats.lines);
 
             downloadBtn.disabled = false;
+            downloadZipBtn.disabled = false;
         } catch (err) {
             alert(`エラーが発生しました:\n${err.message}`);
             console.error(err);
@@ -340,6 +342,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const outputFileName = `${baseName}.ustx`;
         const blob = new Blob([convertedResult.ustxYaml], { type: 'text/yaml;charset=utf-8;' });
 
+        triggerDownload(blob, outputFileName);
+    });
+
+    downloadZipBtn.addEventListener('click', async () => {
+        if (!convertedResult || !currentFile) return;
+        if (typeof JSZip === 'undefined') {
+            alert('ZIP出力用のライブラリを読み込めませんでした。通信状態を確認してから再試行してください。');
+            return;
+        }
+
+        const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+        const zip = new JSZip();
+        zip.file(`${baseName}.ustx`, convertedResult.ustxYaml);
+
+        convertedResult.ustxDict.voice_parts.forEach((part, index) => {
+            const track = convertedResult.ustxDict.tracks[index];
+            const trackName = track.track_name;
+            zip.file(`Export/${baseName}_${trackName}.txt`, part.name);
+        });
+
+        downloadZipBtn.disabled = true;
+        try {
+            const blob = await zip.generateAsync({ type: 'blob' });
+            triggerDownload(blob, `${baseName}.zip`);
+        } finally {
+            downloadZipBtn.disabled = false;
+        }
+    });
+
+    function triggerDownload(blob, outputFileName) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -348,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    });
+    }
 
     function escapeHtml(str) {
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

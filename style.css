@@ -388,6 +388,13 @@ header p {
     white-space: nowrap;
 }
 
+.download-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
 .preview-header {
     display: flex;
     justify-content: space-between;
@@ -500,6 +507,7 @@ header p {
     .option-group input[type="number"] { width: 100%; text-align: left; }
     .expression-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .export-settings-header { align-items: stretch; flex-direction: column; }
+    .download-actions { flex-direction: column; }
     .export-settings-header .btn-primary { width: 100%; justify-content: center; }
     .singer-mapping-item { grid-template-columns: 1fr; }
 }
