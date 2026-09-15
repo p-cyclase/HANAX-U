@@ -68,20 +68,44 @@
         <section id="previewSection" class="glass-card preview-section">
             <div class="preview-controls">
                 <section class="settings-section export-settings" aria-labelledby="exportSettingsTitle">
-                    <h2 id="exportSettingsTitle">出力設定</h2>
-                    <div class="option-group">
-                        <div class="option-copy"><label for="normalizeInput">ノーマライズ</label><p>USTX出力時のノーマライズ既定値です。OpenUtau上で音量の基準として使われます。</p></div>
-                        <input type="number" id="normalizeInput" value="50" min="0" max="100" step="1">
+                    <div class="export-settings-header">
+                        <h2 id="exportSettingsTitle">出力設定</h2>
+                        <button id="downloadBtn" class="btn-primary" disabled>
+                            <span>💾 .ustx をダウンロード</span>
+                        </button>
                     </div>
+                    <section class="expression-settings" aria-labelledby="expressionSettingsTitle">
+                        <h3 id="expressionSettingsTitle">フラグ設定</h3>
+                        <p class="mapping-help">プロジェクト全体の初期値のみ設定できます。</p>
+                        <div class="expression-options">
+                            <div class="expression-option">
+                            <label for="genInput">gender</label>
+                            <input type="number" id="genInput" value="0" min="-100" max="100" step="1">
+                        </div>
+                            <div class="expression-option">
+                            <label for="breInput">breach</label>
+                            <input type="number" id="breInput" value="0" min="0" max="100" step="1">
+                        </div>
+                            <div class="expression-option">
+                            <label for="lpfInput">lowpass</label>
+                            <input type="number" id="lpfInput" value="0" min="0" max="100" step="1">
+                        </div>
+                            <div class="expression-option">
+                            <label for="normalizeInput">normalize</label>
+                            <input type="number" id="normalizeInput" value="50" min="0" max="100" step="1">
+                        </div>
+                            <div class="expression-option">
+                            <label for="modInput">modulation</label>
+                            <input type="number" id="modInput" value="0" min="0" max="100" step="1">
+                        </div>
+                        </div>
+                    </section>
                     <div class="singer-mapping-section">
                         <h3>話者マッピング</h3>
                         <p class="mapping-help">話者ごとにsinger、phonemizer、rendererを指定できます。空欄の場合は出力しません。<br>singerはSingersフォルダ内のフォルダ名を直接入力してください。</p>
                         <div id="singerMappings" class="singer-mappings" aria-live="polite"></div>
                     </div>
                 </section>
-                <button id="downloadBtn" class="btn-primary" disabled>
-                    <span>💾 .ustx をダウンロード</span>
-                </button>
             </div>
             <div class="preview-header">
                 <h2>変換結果プレビュー</h2>

@@ -191,13 +191,26 @@ function resolvePitchOptions(options = {}) {
 }
 
 function resolveExportOptions(options = {}) {
-    const normalize = Number.isFinite(options.normalize)
-        ? Math.max(0, Math.min(100, options.normalize))
-        : 50;
+    const inputValues = options.expressionValues && typeof options.expressionValues === "object"
+        ? options.expressionValues
+        : {};
+    const resolveExpressionValue = (name, min, max, fallback) => {
+        const value = name === "norm" && Number.isFinite(options.normalize)
+            ? options.normalize
+            : inputValues[name];
+        return Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+    };
+    const expressionValues = {
+        gen: resolveExpressionValue("gen", -100, 100, 0),
+        bre: resolveExpressionValue("bre", 0, 100, 0),
+        lpf: resolveExpressionValue("lpf", 0, 100, 0),
+        norm: resolveExpressionValue("norm", 0, 100, 50),
+        mod: resolveExpressionValue("mod", 0, 100, 0)
+    };
     const singerMappings = options.singerMappings && typeof options.singerMappings === "object"
         ? options.singerMappings
         : {};
-    return { normalize, singerMappings };
+    return { expressionValues, normalize: expressionValues.norm, singerMappings };
 }
 
 const SUPPORTED_PHONEMIZERS = new Set([
@@ -286,7 +299,10 @@ function exportNoteSequenceToUstx(noteSequence, options = {}) {
         beat_unit: 4,
         expressions: {
             ...DEFAULT_EXPRESSIONS,
-            norm: { ...DEFAULT_EXPRESSIONS.norm, default_value: exportOptions.normalize }
+            ...Object.fromEntries(Object.entries(exportOptions.expressionValues).map(([name, value]) => [
+                name,
+                { ...DEFAULT_EXPRESSIONS[name], default_value: value }
+            ]))
         },
         exp_selectors: [
             "dyn", "pitd", "clr", "eng", "vel", "vol", "atk", "dec", "gen", "bre"

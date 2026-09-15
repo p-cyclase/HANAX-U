@@ -11,7 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const alphaInput = document.getElementById('alphaInput');
     const betaInput = document.getElementById('betaInput');
     const fbInput = document.getElementById('fbInput');
+    const genInput = document.getElementById('genInput');
+    const breInput = document.getElementById('breInput');
+    const lpfInput = document.getElementById('lpfInput');
     const normalizeInput = document.getElementById('normalizeInput');
+    const modInput = document.getElementById('modInput');
     const singerMappingsContainer = document.getElementById('singerMappings');
 
     const previewSection = document.getElementById('previewSection');
@@ -62,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         processFile(file);
     }
 
-    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput, normalizeInput].forEach(input => {
+    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput, genInput, breInput, lpfInput, normalizeInput, modInput].forEach(input => {
         input.addEventListener('change', () => {
             if (currentFile) processFile(currentFile);
         });
@@ -76,11 +80,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const alpha = parseFloat(alphaInput.value) || 3.0;
             const beta = parseFloat(betaInput.value) || 20.0;
             const fbHz = parseFloat(fbInput.value) || 150.0;
-            const normalize = parseInt(normalizeInput.value, 10);
+            const expressionValues = {
+                gen: parseInt(genInput.value, 10),
+                bre: parseInt(breInput.value, 10),
+                lpf: parseInt(lpfInput.value, 10),
+                norm: parseInt(normalizeInput.value, 10),
+                mod: parseInt(modInput.value, 10)
+            };
 
             convertedResult = convertCinkToUstx(rawData, {
                 portamentoLengthMs, bpm, alpha, beta, fbHz,
-                normalize: Number.isFinite(normalize) ? normalize : 50,
+                expressionValues,
                 singerMappings: Object.fromEntries(singerMappings)
             });
             renderPreview(convertedResult);

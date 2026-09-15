@@ -221,6 +221,45 @@ header p {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.expression-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.expression-settings h3 {
+    font-size: 0.95rem;
+}
+
+.expression-options {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(90px, 1fr));
+    gap: 0.65rem;
+}
+
+.expression-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.expression-option label {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.expression-option input {
+    width: 100%;
+    padding: 0.42rem 0.55rem;
+    color: var(--text-main);
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--card-border);
+    border-radius: 0.35rem;
+    font: inherit;
+}
+
 .singer-mapping-section h3 {
     font-size: 0.95rem;
 }
@@ -331,16 +370,21 @@ header p {
 
 .preview-controls {
     display: flex;
-    align-items: stretch;
-    gap: 1rem;
 }
 
 .export-settings {
     flex: 1;
 }
 
-.preview-controls .btn-primary {
-    align-self: center;
+.export-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.export-settings-header .btn-primary {
     white-space: nowrap;
 }
 
@@ -454,7 +498,8 @@ header p {
 @media (max-width: 560px) {
     .option-group { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .option-group input[type="number"] { width: 100%; text-align: left; }
-    .preview-controls { flex-direction: column; }
-    .preview-controls .btn-primary { width: 100%; justify-content: center; }
+    .expression-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .export-settings-header { align-items: stretch; flex-direction: column; }
+    .export-settings-header .btn-primary { width: 100%; justify-content: center; }
     .singer-mapping-item { grid-template-columns: 1fr; }
 }
