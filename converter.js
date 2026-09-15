@@ -276,7 +276,7 @@ function generateNoteSequence(prosodyProject, options = {}) {
         lines,
         options: pitchOptions,
         noteParts,
-        stats: { lineCount: lines.length, totalNotes: totalNotesCount, pitchStats, lines }
+        stats: { sourceFormat: prosodyProject.sourceFormat, lineCount: lines.length, totalNotes: totalNotesCount, pitchStats, lines }
     };
 }
 

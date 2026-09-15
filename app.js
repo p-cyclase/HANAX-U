@@ -363,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const trackName = track.track_name;
             zip.file(`Export/${baseName}_${trackName}.txt`, part.name);
         });
+        zip.file(`Log/${baseName}_conversion.log`, buildConversionLog(baseName));
 
         downloadZipBtn.disabled = true;
         try {
@@ -382,6 +383,59 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    function buildConversionLog(baseName) {
+        const { stats, ustxDict } = convertedResult;
+        const trackNameFormatLabels = {
+            number: '連番のみ',
+            'number-text': '連番_セリフ',
+            'number-singer-text': '連番_singer_セリフ'
+        };
+        const settings = {
+            bpm: bpmInput.value,
+            portamentoLengthMs: portamentoInput.value,
+            alpha: alphaInput.value,
+            beta: betaInput.value,
+            fbHz: fbInput.value,
+            gen: genInput.value,
+            bre: breInput.value,
+            lpf: lpfInput.value,
+            norm: normalizeInput.value,
+            mod: modInput.value
+        };
+        const lines = [
+            'HANAX-U Conversion Log',
+            `Generated (UTC): ${new Date().toISOString()}`,
+            '',
+            '[Source]',
+            `file: ${currentFile.name}`,
+            `format: ${stats.sourceFormat || 'unknown'}`,
+            '',
+            '[Conversion settings]',
+            ...Object.entries(settings).map(([key, value]) => `${key}: ${value}`),
+            '',
+            '[Output settings]',
+            `track_name_format: ${trackNameFormatLabels[trackNameFormatInput.value] || trackNameFormatInput.value}`,
+            `ustx: ${baseName}.ustx`,
+            `text_directory: Export/`,
+            `log_file: Log/${baseName}_conversion.log`,
+            '',
+            '[Result]',
+            `tracks: ${ustxDict.tracks.length}`,
+            `notes: ${stats.totalNotes}`,
+            '',
+            '[Tracks]'
+        ];
+
+        ustxDict.tracks.forEach((track, index) => {
+            const part = ustxDict.voice_parts[index];
+            lines.push(`- ${track.track_name}`);
+            lines.push(`  singer: ${track.singer || '(not set)'}`);
+            lines.push(`  text_file: Export/${baseName}_${track.track_name}.txt`);
+            lines.push(`  text: ${part.name}`);
+        });
+        return `${lines.join('\n')}\n`;
     }
 
     function escapeHtml(str) {
