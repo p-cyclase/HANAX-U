@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modInput = document.getElementById('modInput');
     const trackNameFormatInput = document.getElementById('trackNameFormatInput');
     const singerMappingsContainer = document.getElementById('singerMappings');
+    const fileError = document.getElementById('fileError');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -34,7 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let convertedResult = null;
     let importedProsodyProject = null;
     let generatedNoteSequence = null;
+    let importRequestId = 0;
     const singerMappings = new Map();
+
+    const MAX_INPUT_FILE_SIZE = 20 * 1024 * 1024;
+    const MAX_ARCHIVE_UNCOMPRESSED_SIZE = 50 * 1024 * 1024;
+    const SUPPORTED_FILE_EXTENSIONS = new Set(['.cink', '.vvproj']);
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -63,6 +69,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function handleFileSelect(file) {
+        const validationError = validateInputFile(file);
+        if (validationError) {
+            showFileError(validationError);
+            fileInput.value = '';
+            return;
+        }
+
+        clearFileError();
+        downloadBtn.disabled = true;
+        downloadZipBtn.disabled = true;
+        const requestId = ++importRequestId;
+        processFile(file, requestId);
+    }
+
+    function setSelectedFile(file) {
         currentFile = file;
         importedProsodyProject = null;
         generatedNoteSequence = null;
@@ -71,25 +92,31 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadZipBtn.disabled = true;
         const dropzoneTitle = dropzone.querySelector('h3');
         const dropzoneSub = dropzone.querySelector('p');
-        
+
         dropzoneTitle.textContent = `選択中: ${file.name}`;
         dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
         applySettingsBtn.hidden = false;
-        
-        processFile(file);
     }
 
     applySettingsBtn.addEventListener('click', () => {
         if (importedProsodyProject) regenerateFromSettings();
     });
 
-    async function processFile(file) {
+    async function processFile(file, requestId) {
         try {
             const rawData = await readCinkFile(file);
-            importedProsodyProject = importCinkToProsodyProject(rawData);
+            const prosodyProject = importCinkToProsodyProject(rawData);
+            if (requestId !== importRequestId) return;
+            setSelectedFile(file);
+            importedProsodyProject = prosodyProject;
             regenerateFromSettings();
         } catch (err) {
-            alert(`エラーが発生しました:\n${err.message}`);
+            if (requestId !== importRequestId) return;
+            showFileError(`読み込めませんでした。${err.message}`);
+            if (generatedNoteSequence && currentFile) {
+                downloadBtn.disabled = false;
+                downloadZipBtn.disabled = false;
+            }
             console.error(err);
         }
     }
@@ -142,28 +169,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function readCinkFile(file) {
         const arrayBuffer = await file.arrayBuffer();
-        
+        const bytes = new Uint8Array(arrayBuffer);
+        const looksLikeZip = bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4B;
+
         if (typeof JSZip !== 'undefined') {
             try {
                 const zip = await JSZip.loadAsync(arrayBuffer);
-                let jsonFile = zip.file("project.json") || zip.file("projects.json") || zip.file("content.json");
+                const archiveSize = getArchiveUncompressedSize(zip);
+                if (archiveSize > MAX_ARCHIVE_UNCOMPRESSED_SIZE) {
+                    throw new Error(`圧縮ファイルの展開後サイズが上限（${formatFileSize(MAX_ARCHIVE_UNCOMPRESSED_SIZE)}）を超えています。`);
+                }
+
+                let jsonFile = zip.file('project.json') || zip.file('projects.json') || zip.file('content.json');
                 if (!jsonFile) {
-                    const jsonFiles = Object.keys(zip.files).filter(name => name.endsWith('.json'));
+                    const jsonFiles = Object.keys(zip.files).filter(name => name.toLowerCase().endsWith('.json'));
                     if (jsonFiles.length > 0) {
                         jsonFile = zip.file(jsonFiles[0]);
                     }
                 }
-                if (jsonFile) {
-                    const text = await jsonFile.async("text");
-                    return JSON.parse(text);
+                if (!jsonFile) {
+                    throw new Error('圧縮されたプロジェクト内にJSONデータが見つかりませんでした。');
                 }
-            } catch (e) {
-                // Not a zip file, fallback
+                const text = await jsonFile.async('text');
+                return parseProjectJson(text, '圧縮ファイル内のJSON');
+            } catch (err) {
+                if (looksLikeZip) {
+                    throw err instanceof Error
+                        ? err
+                        : new Error('圧縮されたプロジェクトを読み込めませんでした。ファイルが破損している可能性があります。');
+                }
             }
         }
 
-        const textDecoder = new TextDecoder('utf-8');
-        return parseCinkText(textDecoder.decode(arrayBuffer));
+        try {
+            const textDecoder = new TextDecoder('utf-8', { fatal: true });
+            return parseCinkText(textDecoder.decode(arrayBuffer));
+        } catch (err) {
+            if (err instanceof Error && err.message) throw err;
+            throw new Error('UTF-8形式のテキストとして読み込めませんでした。');
+        }
     }
 
     /**
@@ -175,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!text) throw new Error('ファイルの内容が空です。');
 
         try {
-            return JSON.parse(text);
+            return parseProjectJson(text, 'JSON');
         } catch (jsonError) {
             if (!/^\s*\[project\]/im.test(text)) {
                 throw new Error('JSONとして読み込めませんでした。COEIROINKの .cink ファイルを選択してください。');
@@ -187,6 +231,61 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('COEIROINKプロジェクト内にセリフが見つかりませんでした。');
         }
         return project;
+    }
+
+    function parseProjectJson(text, sourceLabel) {
+        try {
+            const data = JSON.parse(text.replace(/^\uFEFF/, ''));
+            if (data === null || (typeof data !== 'object')) {
+                throw new Error('プロジェクトのJSONがオブジェクト形式ではありません。');
+            }
+            return data;
+        } catch (err) {
+            if (err instanceof SyntaxError) {
+                throw new Error(`${sourceLabel}の形式が正しくありません。`);
+            }
+            throw err;
+        }
+    }
+
+    function validateInputFile(file) {
+        if (!file || !file.name) return 'ファイルを選択できませんでした。もう一度お試しください。';
+        const extension = getFileExtension(file.name);
+        if (!SUPPORTED_FILE_EXTENSIONS.has(extension)) {
+            return '対応している形式は .cink、.vvproj です。';
+        }
+        if (file.size === 0) return '空のファイルは読み込めません。';
+        if (file.size > MAX_INPUT_FILE_SIZE) {
+            return `ファイルサイズが上限（${formatFileSize(MAX_INPUT_FILE_SIZE)}）を超えています。`;
+        }
+        return '';
+    }
+
+    function getFileExtension(fileName) {
+        const match = /\.[^.]+$/.exec(fileName);
+        return match ? match[0].toLowerCase() : '';
+    }
+
+    function getArchiveUncompressedSize(zip) {
+        return Object.values(zip.files).reduce((total, entry) => {
+            if (entry.dir) return total;
+            const size = Number(entry?._data?.uncompressedSize);
+            return Number.isFinite(size) ? total + size : total;
+        }, 0);
+    }
+
+    function formatFileSize(sizeInBytes) {
+        return `${Math.round(sizeInBytes / 1024 / 1024)} MB`;
+    }
+
+    function showFileError(message) {
+        fileError.textContent = message;
+        fileError.hidden = false;
+    }
+
+    function clearFileError() {
+        fileError.textContent = '';
+        fileError.hidden = true;
     }
 
     function parseIniCink(text) {
