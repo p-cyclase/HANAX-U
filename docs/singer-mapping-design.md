@@ -1,75 +1,79 @@
-# Singer Mapping Design
+# 話者マッピング設計
 
-## Purpose
+## 目的
 
-HANAX-U converts speech-project prosody into OpenUtau notes. The future singer-mapping feature will let a user choose which locally installed OpenUtau singer should be assigned to each imported source speaker and style.
+HANAX-Uは、音声合成プロジェクトから取得した韻律情報をOpenUtauのノートへ変換する。話者マッピング機能では、インポート元の話者・スタイルごとに、ローカル環境のOpenUtauで使用するsingerを指定できる。
 
-This feature does not attempt to discover installed voicebanks from the browser or infer a compatible UTAU singer automatically.
+この機能は、ブラウザからローカルにインストールされた音源を検索したり、互換性のあるUTAU音源を自動推定したりするものではない。
 
-## Conversion pipeline
+## 変換処理の流れ
 
 ```text
-Importer -> ProsodyProject -> Generator -> NoteSequence -> Exporter -> USTX
+Importer（インポート処理） → ProsodyProject（韻律データ）
+  → Generator（音高・ノート生成） → NoteSequence（ノート列）
+  → Exporter（出力処理） → USTX
 ```
 
-- The Importer preserves source-speaker metadata with each dialogue line.
-- The Generator creates lyrics, timing, pitch, rests, and portamento without selecting a singer.
-- The Exporter applies the saved singer mapping to the USTX track.
+- Importerは、インポート元の話者情報を各セリフ行とともに保持する。
+- Generatorは、singerを選択せずに歌詞・タイミング・音高・休符・ポルタメントを生成する。
+- Exporterは、保持された話者マッピングをUSTXトラックへ反映する。
 
-## Source speaker identity
+## インポート元の話者ID
 
-For COEIROINK imports, every dialogue line retains:
+COEIROINKからのインポートでは、各セリフ行に以下の情報を保持する。
 
 - `speaker_uuid`
 - `style_id`
 - `speaker_name`
 - `style_name`
-- `speaker_id`: the stable key `${speaker_uuid}:${style_id}`
+- `speaker_id`：安定した識別子 `${speaker_uuid}:${style_id}`
 
-`speaker_id` is the mapping key. The names are for display and fallback identification only, because a speaker can have multiple styles and names are not guaranteed to be unique.
+`speaker_id`を話者マッピングのキーとする。話者名・スタイル名はUI表示および補助的な識別にのみ使用する。同じ話者が複数のスタイルを持つ場合や、同名の話者が存在する可能性があるためである。
 
-The UI label is:
+UIでは次の形式で表示する。
 
 ```text
 話者（スタイル名）
 ```
 
-For example: `つくよみちゃん（れいせい）`.
+例：`話者A（ノーマル）`
 
-## Mapping profile
+VOICEVOXからのインポートでは、`speakerUuid + styleId`に相当する情報を`speaker_id`として保持する。将来の音声ライブラリ追加との互換性を優先し、話者名・スタイル名の表示にはID文字列をそのまま用いる。
 
-The user creates one output profile per source `speaker_id`.
+## 話者マッピングの内容
+
+インポート元の`speaker_id`ごとに、1つの出力設定を作成する。
 
 ```text
-source speaker_id
-  -> singer: free-text OpenUtau singer name
-  -> phonemizer: one of two supported choices
-  -> renderer: one of two supported choices
+インポート元 speaker_id
+  → singer：自由入力のOpenUtau音源名
+  → phonemizer：対応する2種類の選択肢のいずれか
+  → renderer：対応する2種類の選択肢のいずれか
 ```
 
 ### `singer`
 
-The value is a free-text field. It must match the singer name or path recognized by the user’s local OpenUtau installation. A browser application cannot reliably enumerate that installation.
+自由入力の文字列である。利用者のローカルOpenUtau環境で認識される、Singersフォルダ内の音源フォルダ名を入力する。ブラウザアプリケーションからローカル環境の音源一覧を安全かつ確実に取得することはできない。
 
 ### `phonemizer`
 
-Supported choices:
+選択肢は以下の2つである。
 
-- `OpenUtau.Core.DefaultPhonemizer`
-- `OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer`
+- `OpenUtau.Core.DefaultPhonemizer`（UI表示：`DEFAULT`）
+- `OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer`（UI表示：`JA VCV & CVVC`）
 
 ### `renderer`
 
-Supported choices:
+選択肢は以下の2つである。
 
 - `CLASSIC`
 - `WORLDLINE-R`
 
-The renderer is written as `renderer_settings.renderer` in the USTX track.
+USTXでは`renderer_settings.renderer`へ出力する。
 
-## USTX output policy
+## USTX出力方針
 
-For a mapped source speaker, the Exporter writes only the user-selected portable fields:
+マッピングが設定されたインポート元話者について、Exporterは利用者が指定した移植性の高い項目だけを出力する。
 
 ```yaml
 singer: example singer
@@ -78,16 +82,18 @@ renderer_settings:
   renderer: CLASSIC
 ```
 
-The Exporter must not write `resampler`, `wavtool`, or `voice_color_names`. OpenUtau can then use settings appropriate to the singer available in the local environment.
+`resampler`、`wavtool`、`voice_color_names`は出力しない。これにより、ローカル環境にある音源に適した設定をOpenUtau側で補完できる。
 
-If a source speaker has no mapping, the Exporter keeps the current safe behavior: it omits `singer` and does not invent singer-specific settings.
+話者マッピングが空欄の場合、Exporterは`singer`を出力せず、音源固有の設定を推測・追加しない。
 
-## Scope of a mapping
+## 適用範囲
 
-The current output design makes one OpenUtau track per imported dialogue line. Therefore a speaker profile applies to every output track whose imported `speaker_id` matches it.
+現在の出力設計では、インポートされたセリフ行ごとに1つのOpenUtauトラックを作成する。そのため、ある話者の設定は、同じ`speaker_id`を持つすべての出力トラックへ適用される。
 
-If users later need different singers for lines from the same source speaker, add a separate per-line override. That override should take precedence over the speaker-profile mapping.
+将来、同一話者のセリフ行ごとに異なるsingerを設定する必要が生じた場合は、セリフ行単位の上書き設定を追加する。この上書き設定は話者単位の設定より優先する。
 
-## UI behavior
+## UI上の挙動
 
-After a source file has been imported, the output settings show one mapping row for each unique source `speaker_id`. Each row displays `話者（スタイル名）`, accepts a free-text singer name, and provides the two supported phonemizer and renderer choices. Changing a row immediately refreshes the conversion preview and the pending USTX download.
+ファイルのインポート後、出力設定には固有の`speaker_id`ごとに1行のマッピング項目を表示する。各行では「話者（スタイル名）」を表示し、singer名の自由入力とphonemizer・rendererの選択を行える。
+
+話者マッピングの変更はGeneratorによる音高再計算を必要としない。入力内容は保持され、`.ustx をダウンロード`または`セリフ付きZIPをダウンロード`を押した時点でExporterが現在のマッピングを反映する。

@@ -73,12 +73,6 @@ header p {
     font-size: 0.95rem;
 }
 
-header .disclaimer {
-    margin-top: 0.7rem;
-    font-size: 0.78rem;
-    line-height: 1.45;
-}
-
 .badge-bar {
     display: flex;
     justify-content: center;

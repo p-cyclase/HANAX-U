@@ -18,7 +18,7 @@ class TestFujisakiConverter(unittest.TestCase):
             "textBoxes": [
                 {
                     "textBoxUuid": "tb-001",
-                    "speakerName": "つくよみちゃん",
+                    "speakerName": "テスト話者",
                     "text": "やあやあきみたち、はじめまして？",
                     "prosodyDetail": [
                         [

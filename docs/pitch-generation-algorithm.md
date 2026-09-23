@@ -48,3 +48,9 @@ COEIROINKまたはVOICEVOXのプロジェクトからセリフのモーラ列と
 ## ポルタメント
 
 各ノートは2点式のピッチカーブを持つ。開始点は直前ノートとの差、終点は当該ノートの音高とし、x座標にはUIのポルタメント長（ms）を使う。`snap_first`は常に`true`である。ビブラートの長さは0であり、実質的に無効である。
+
+## 参考文献
+
+本実装は、以下の藤崎モデルに関する原典論文を参考にしている。論文の本文・図表・データは本リポジトリに収録していない。
+
+- H. Fujisaki and K. Hirose, “Analysis of voice fundamental frequency contours for declarative sentences of Japanese,” *Journal of the Acoustical Society of Japan (E)*, 5(4), 233–242 (1984). https://doi.org/10.1250/ast.5.233
