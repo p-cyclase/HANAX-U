@@ -1,7 +1,5 @@
-# Ignore sample directory
+# Sample projects and reference materials
 sample/
-
-# Reference materials (papers, specifications, etc.)
 material/
 
 # Python cache
