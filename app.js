@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileError = document.getElementById('fileError');
     const processingStatus = document.getElementById('processingStatus');
     const processingMessage = document.getElementById('processingMessage');
-    const exportSettingsTitle = document.getElementById('exportSettingsTitle');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -165,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function scrollToDownloadActions() {
         requestAnimationFrame(() => {
             const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            exportSettingsTitle.scrollIntoView({
+            previewSection.scrollIntoView({
                 behavior: reduceMotion ? 'auto' : 'smooth',
                 block: 'start'
             });
