@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const trackNameFormatInput = document.getElementById('trackNameFormatInput');
     const singerMappingsContainer = document.getElementById('singerMappings');
     const fileError = document.getElementById('fileError');
+    const processingStatus = document.getElementById('processingStatus');
+    const processingMessage = document.getElementById('processingMessage');
+    const exportSettingsTitle = document.getElementById('exportSettingsTitle');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -41,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_INPUT_FILE_SIZE = 20 * 1024 * 1024;
     const MAX_ARCHIVE_UNCOMPRESSED_SIZE = 50 * 1024 * 1024;
     const SUPPORTED_FILE_EXTENSIONS = new Set(['.cink', '.vvproj']);
+    const PROCESSING_STATUS_MIN_DURATION_MS = 250;
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -80,7 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.disabled = true;
         downloadZipBtn.disabled = true;
         const requestId = ++importRequestId;
-        processFile(file, requestId);
+        const processingStartedAt = showProcessingStatus('ファイルを読み込んでいます…');
+        processFile(file, requestId, processingStartedAt);
     }
 
     function setSelectedFile(file) {
@@ -98,20 +103,25 @@ document.addEventListener('DOMContentLoaded', () => {
         applySettingsBtn.hidden = false;
     }
 
-    applySettingsBtn.addEventListener('click', () => {
-        if (importedProsodyProject) regenerateFromSettings();
+    applySettingsBtn.addEventListener('click', async () => {
+        if (!importedProsodyProject) return;
+        applySettingsBtn.disabled = true;
+        const processingStartedAt = showProcessingStatus('設定を反映しています…');
+        await regenerateFromSettings(processingStartedAt);
+        applySettingsBtn.disabled = false;
     });
 
-    async function processFile(file, requestId) {
+    async function processFile(file, requestId, processingStartedAt) {
         try {
             const rawData = await readCinkFile(file);
             const prosodyProject = importCinkToProsodyProject(rawData);
             if (requestId !== importRequestId) return;
             setSelectedFile(file);
             importedProsodyProject = prosodyProject;
-            regenerateFromSettings();
+            await regenerateFromSettings(processingStartedAt);
         } catch (err) {
             if (requestId !== importRequestId) return;
+            hideProcessingStatus();
             showFileError(`読み込めませんでした。${err.message}`);
             if (generatedNoteSequence && currentFile) {
                 downloadBtn.disabled = false;
@@ -121,8 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function regenerateFromSettings() {
+    async function regenerateFromSettings(processingStartedAt) {
         try {
+            await waitForNextFrame();
             generatedNoteSequence = generateNoteSequence(importedProsodyProject, {
                 portamentoLengthMs: parseInt(portamentoInput.value, 10) || 60,
                 bpm: parseInt(bpmInput.value, 10) || 200,
@@ -133,7 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 fbHz: parseFloat(fbInput.value) || 150.0
             });
             refreshExportResult();
+            await waitForMinimumProcessingDuration(processingStartedAt);
+            hideProcessingStatus();
+            scrollToDownloadActions();
         } catch (err) {
+            hideProcessingStatus();
             alert(`エラーが発生しました:\n${err.message}`);
             console.error(err);
         }
@@ -145,6 +160,36 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSingerMappings(convertedResult.stats.lines);
         downloadBtn.disabled = false;
         downloadZipBtn.disabled = false;
+    }
+
+    function scrollToDownloadActions() {
+        requestAnimationFrame(() => {
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            exportSettingsTitle.scrollIntoView({
+                behavior: reduceMotion ? 'auto' : 'smooth',
+                block: 'start'
+            });
+        });
+    }
+
+    function showProcessingStatus(message) {
+        processingMessage.textContent = message;
+        processingStatus.hidden = false;
+        return performance.now();
+    }
+
+    function hideProcessingStatus() {
+        processingStatus.hidden = true;
+    }
+
+    function waitForNextFrame() {
+        return new Promise(resolve => requestAnimationFrame(resolve));
+    }
+
+    function waitForMinimumProcessingDuration(processingStartedAt) {
+        const elapsed = performance.now() - processingStartedAt;
+        const remaining = Math.max(0, PROCESSING_STATUS_MIN_DURATION_MS - elapsed);
+        return new Promise(resolve => window.setTimeout(resolve, remaining));
     }
 
     // Generator の結果は保持したまま、現在の出力設定で USTX を組み立てる。
