@@ -84,7 +84,7 @@ If a source speaker has no mapping, the Exporter keeps the current safe behavior
 
 ## Scope of a mapping
 
-The current converter makes one OpenUtau track per imported dialogue line. Therefore a speaker profile applies to every output track whose imported `speaker_id` matches it.
+The current output design makes one OpenUtau track per imported dialogue line. Therefore a speaker profile applies to every output track whose imported `speaker_id` matches it.
 
 If users later need different singers for lines from the same source speaker, add a separate per-line override. That override should take precedence over the speaker-profile mapping.
 

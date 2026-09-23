@@ -1,4 +1,4 @@
-/* style.css - HANAX-U Converter Styling */
+/* style.css - HANAX-U Styling */
 
 :root {
     --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #090d16 100%);
@@ -170,6 +170,10 @@ header .disclaimer {
     flex-wrap: wrap;
 }
 
+.apply-settings-btn {
+    align-self: flex-end;
+}
+
 .settings-section {
     display: flex;
     flex-direction: column;
@@ -183,6 +187,37 @@ header .disclaimer {
 .settings-section h2 {
     font-size: 1rem;
     color: var(--accent-cyan);
+}
+
+.advanced-settings {
+    gap: 0;
+}
+
+.advanced-settings summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    cursor: pointer;
+    color: var(--accent-cyan);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.advanced-settings summary small {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 400;
+}
+
+.advanced-settings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.advanced-settings:not([open]) .advanced-settings-body {
+    display: none;
 }
 
 .option-group {
@@ -541,6 +576,8 @@ header .disclaimer {
 @media (max-width: 560px) {
     .option-group { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
     .option-group input[type="number"] { width: 100%; text-align: left; }
+    .apply-settings-btn { align-self: stretch; justify-content: center; }
+    .advanced-settings summary { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
     .expression-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .export-settings-header { align-items: stretch; flex-direction: column; }
     .download-actions { flex-direction: column; }

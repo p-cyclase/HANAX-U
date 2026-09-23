@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-cink2ustx.py - HANAX-U コンバータ (COEIROINK .cink -> OpenUtau .ustx)
+cink2ustx.py - HANAX-U (COEIROINK .cink -> OpenUtau .ustx)
 
 Converts COEIROINK project files (.cink or JSON) to OpenUtau project format (.ustx).
 Strictly matches official OpenUtau project file schema (v0.7).
@@ -832,7 +832,7 @@ def export_note_sequence_to_ustx(note_sequence: Dict[str, Any],
         })
     
     ustx = {
-        "name": "HANAX-U Export",
+        "name": "HANAX-U",
         "comment": "",
         "output_dir": "Vocal",
         "cache_dir": "UCache",
@@ -923,7 +923,7 @@ def format_yaml_scalar(val: Any) -> str:
     return s
 
 def main():
-    parser = argparse.ArgumentParser(description="HANAX-U コンバータ (藤崎モデル搭載 COEIROINK .cink / JSON -> OpenUtau .ustx)")
+    parser = argparse.ArgumentParser(description="HANAX-U (藤崎モデル搭載 COEIROINK .cink / JSON -> OpenUtau .ustx)")
     parser.add_argument("input_path", help="Path to input .cink or .json file")
     parser.add_argument("output_path", nargs="?", help="Path to output .ustx file (optional)")
     parser.add_argument("--bpm", type=int, default=180, help="Tempo BPM (default: 180)")

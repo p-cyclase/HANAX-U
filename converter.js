@@ -1,5 +1,5 @@
 /**
- * converter.js - HANAX-U コンバータ (Fujisaki Model Pitch Engine & OpenUtau .ustx Exporter)
+ * converter.js - HANAX-U (Fujisaki Model Pitch Engine & OpenUtau .ustx Exporter)
  * Strictly matches official OpenUtau project file schema (v0.7).
  */
 
@@ -274,7 +274,7 @@ function exportNoteSequenceToUstx(noteSequence, options = {}) {
     }));
 
     const ustxDict = {
-        name: "HANAX-U Export",
+        name: "HANAX-U",
         comment: "",
         output_dir: "Vocal",
         cache_dir: "UCache",

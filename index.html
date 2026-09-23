@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HANAX-U コンバータ (COEIROINK / VOICEVOX → OpenUTAU)</title>
+    <title>HANAX-U (COEIROINK / VOICEVOX → OpenUTAU)</title>
     <meta name="description" content="藤崎モデル（F0生成モデル）搭載。COEIROINK・VOICEVOXのプロジェクトファイルをOpenUTAU（.ustx）に自動変換するツール。">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@
     <div class="container">
         <!-- Header -->
         <header>
-            <h1>HANAX-U コンバータ</h1>
+            <h1>HANAX-U</h1>
             <p>COEIROINK（.cink）・VOICEVOX（vvproj）のプロジェクトファイルからモーラとアクセント位置を取得し、藤崎モデル（F0生成モデル）に基づく変換によってOpenUTAU用ust（.ustx）を生成します。<br>あくまでアクセント位置のみ取得し再計算するため、元プロジェクトの音高を再現するものではありません。</p>
             <p class="disclaimer">本アプリケーションはバイブコーディングにより作成されています。作成者は専門知識を有しておらず、動作・互換性・利用方法に関する個別のサポートには対応できません。ご利用は自己責任でお願いします。</p>
             <div class="badge-bar">
@@ -33,43 +33,54 @@
         <main class="glass-card">
             <div class="dropzone" id="dropzone">
                 <div class="dropzone-icon">📁</div>
-                <h3>.cink・.vvproj・JSON ファイルをドラッグ＆ドロップ</h3>
+                <h3>.cink/.vvprojファイルをドラッグ＆ドロップ</h3>
                 <p>またはクリックしてファイルを選択してください</p>
                 <input type="file" id="fileInput" class="file-input" accept=".cink,.vvproj,.json,.zip">
             </div>
 
             <div class="options-bar" aria-label="変換設定">
-                <section class="settings-section" aria-labelledby="conversionSettingsTitle">
-                    <h2 id="conversionSettingsTitle">変換設定</h2>
+                <section class="settings-section" aria-labelledby="basicSettingsTitle">
+                    <h2 id="basicSettingsTitle">基本設定</h2>
                     <div class="option-group">
-                        <div class="option-copy"><label for="bpmInput">BPM</label><p>変換後の楽曲テンポです。1拍あたりの速さを指定します。</p></div>
+                        <div class="option-copy"><label for="bpmInput">BPM</label><p>プロジェクト全体のテンポを指定します。値が大きいほど早口になります。</p></div>
                         <input type="number" id="bpmInput" value="200" min="1" max="999" step="1">
                     </div>
                     <div class="option-group">
-                        <div class="option-copy"><label for="portamentoInput">ポルタメント長（ms）</label><p>ノートの切り替わりを滑らかにつなぐ長さです。ミリ秒単位で指定します。0で無効になります。</p></div>
+                        <div class="option-copy"><label for="portamentoInput">ポルタメント長（ms）</label><p>ノートの切り替わりをつなぐ長さです。長いほどなめらかになります。</p></div>
                         <input type="number" id="portamentoInput" value="75" min="0" max="500" step="5">
                     </div>
                     <div class="option-group">
-                        <div class="option-copy"><label for="alphaInput">フレーズ減衰（α）</label><p>文節全体の音高変化が落ち着く速さです。大きいほど早く減衰します。</p></div>
-                        <input type="number" id="alphaInput" value="3.0" min="0.5" max="10.0" step="0.5">
-                    </div>
-                    <div class="option-group">
-                        <div class="option-copy"><label for="betaInput">アクセント応答（β）</label><p>アクセントによる立ち上がりの鋭さです。大きいほど素早く変化します。</p></div>
-                        <input type="number" id="betaInput" value="20.0" min="5.0" max="50.0" step="1.0">
-                    </div>
-                    <div class="option-group">
-                        <div class="option-copy"><label for="phraseMagnitudeInput">フレーズ成分の強さ</label><p>フレーズ境界から生じる音高変化の大きさです。</p></div>
-                        <input type="number" id="phraseMagnitudeInput" value="0.35" min="0" max="2" step="0.05">
-                    </div>
-                    <div class="option-group">
-                        <div class="option-copy"><label for="accentMagnitudeInput">アクセント成分の強さ</label><p>アクセント位置から生じる音高変化の大きさです。</p></div>
-                        <input type="number" id="accentMagnitudeInput" value="0.45" min="0" max="2" step="0.05">
-                    </div>
-                    <div class="option-group">
-                        <div class="option-copy"><label for="fbInput">基底周波数（Fb Hz）</label><p>藤崎モデルの基準となる声の高さです。全体の音域を上下させます。目安は男性ボイスで100 Hz、女性ボイスで180 Hzです。</p></div>
+                        <div class="option-copy"><label for="fbInput">基底周波数（Hz）</label><p>声の高さの基準です。目安は男性ボイスで100 Hz、女性ボイスで180 Hzです。</p></div>
                         <input type="number" id="fbInput" value="150" min="50" max="400" step="5">
                     </div>
                 </section>
+                <details class="settings-section advanced-settings">
+                    <summary>
+                        <span>詳細設定</span>
+                        <small>分からなければ変更する必要はありません。</small>
+                    </summary>
+                    <div class="advanced-settings-body">
+                        <div class="option-group">
+                            <div class="option-copy"><label for="phraseMagnitudeInput">フレーズ成分の強さ</label><p>フレーズ境界から生じる音高変化の大きさです。</p></div>
+                            <input type="number" id="phraseMagnitudeInput" value="0.35" min="0" max="2" step="0.05">
+                        </div>
+                        <div class="option-group">
+                            <div class="option-copy"><label for="alphaInput">フレーズ減衰（α）</label><p>文節全体の音高変化が落ち着く速さです。大きいほど早く減衰します。</p></div>
+                            <input type="number" id="alphaInput" value="3.0" min="0.5" max="10.0" step="0.5">
+                        </div>
+                        <div class="option-group">
+                            <div class="option-copy"><label for="accentMagnitudeInput">アクセント成分の強さ</label><p>アクセント位置から生じる音高変化の大きさです。</p></div>
+                            <input type="number" id="accentMagnitudeInput" value="0.45" min="0" max="2" step="0.05">
+                        </div>
+                        <div class="option-group">
+                            <div class="option-copy"><label for="betaInput">アクセント応答（β）</label><p>アクセントによる立ち上がりの鋭さです。大きいほど素早く変化します。</p></div>
+                            <input type="number" id="betaInput" value="20.0" min="5.0" max="50.0" step="1.0">
+                        </div>
+                    </div>
+                </details>
+                <button id="applySettingsBtn" class="btn-primary apply-settings-btn" type="button" hidden>
+                    変更を反映
+                </button>
             </div>
         </main>
 
@@ -129,7 +140,7 @@
                     </section>
                     <div class="singer-mapping-section">
                         <h3>話者マッピング</h3>
-                        <p class="mapping-help">話者ごとにsinger、phonemizer、rendererを指定できます。空欄の場合は出力しません。<br>singerはSingersフォルダ内のフォルダ名を直接入力してください。</p>
+                        <p class="mapping-help">話者ごとにsinger、phonemizer、rendererを指定できます。空欄の場合は出力しません。<br>singer名にはSingersフォルダ内の音源フォルダ名を直接入力してください。</p>
                         <div id="singerMappings" class="singer-mappings" aria-live="polite"></div>
                     </div>
                 </section>

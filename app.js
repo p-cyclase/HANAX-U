@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
+    const applySettingsBtn = document.getElementById('applySettingsBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const downloadZipBtn = document.getElementById('downloadZipBtn');
     const bpmInput = document.getElementById('bpmInput');
@@ -31,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentFile = null;
     let convertedResult = null;
+    let importedProsodyProject = null;
+    let generatedNoteSequence = null;
     const singerMappings = new Map();
 
     // File Drop Events
@@ -61,56 +64,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleFileSelect(file) {
         currentFile = file;
+        importedProsodyProject = null;
+        generatedNoteSequence = null;
+        convertedResult = null;
+        downloadBtn.disabled = true;
+        downloadZipBtn.disabled = true;
         const dropzoneTitle = dropzone.querySelector('h3');
         const dropzoneSub = dropzone.querySelector('p');
         
         dropzoneTitle.textContent = `選択中: ${file.name}`;
         dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
+        applySettingsBtn.hidden = false;
         
         processFile(file);
     }
 
-    [bpmInput, portamentoInput, alphaInput, betaInput, phraseMagnitudeInput, accentMagnitudeInput, fbInput, genInput, breInput, lpfInput, normalizeInput, modInput, trackNameFormatInput].forEach(input => {
-        input.addEventListener('change', () => {
-            if (currentFile) processFile(currentFile);
-        });
+    applySettingsBtn.addEventListener('click', () => {
+        if (importedProsodyProject) regenerateFromSettings();
     });
 
     async function processFile(file) {
         try {
             const rawData = await readCinkFile(file);
-            const portamentoLengthMs = parseInt(portamentoInput.value, 10) || 60;
-            const bpm = parseInt(bpmInput.value, 10) || 200;
-            const alpha = parseFloat(alphaInput.value) || 3.0;
-            const beta = parseFloat(betaInput.value) || 20.0;
-            const phraseMagnitude = parseFloat(phraseMagnitudeInput.value);
-            const accentMagnitude = parseFloat(accentMagnitudeInput.value);
-            const fbHz = parseFloat(fbInput.value) || 150.0;
-            const expressionValues = {
-                gen: parseInt(genInput.value, 10),
-                bre: parseInt(breInput.value, 10),
-                lpf: parseInt(lpfInput.value, 10),
-                norm: parseInt(normalizeInput.value, 10),
-                mod: parseInt(modInput.value, 10)
-            };
-
-            convertedResult = convertCinkToUstx(rawData, {
-                portamentoLengthMs, bpm, alpha, beta, fbHz,
-                phraseMagnitude: Number.isFinite(phraseMagnitude) ? phraseMagnitude : 0.35,
-                accentMagnitude: Number.isFinite(accentMagnitude) ? accentMagnitude : 0.45,
-                expressionValues,
-                trackNameFormat: trackNameFormatInput.value,
-                singerMappings: Object.fromEntries(singerMappings)
-            });
-            renderPreview(convertedResult);
-            renderSingerMappings(convertedResult.stats.lines);
-
-            downloadBtn.disabled = false;
-            downloadZipBtn.disabled = false;
+            importedProsodyProject = importCinkToProsodyProject(rawData);
+            regenerateFromSettings();
         } catch (err) {
             alert(`エラーが発生しました:\n${err.message}`);
             console.error(err);
         }
+    }
+
+    function regenerateFromSettings() {
+        try {
+            generatedNoteSequence = generateNoteSequence(importedProsodyProject, {
+                portamentoLengthMs: parseInt(portamentoInput.value, 10) || 60,
+                bpm: parseInt(bpmInput.value, 10) || 200,
+                alpha: parseFloat(alphaInput.value) || 3.0,
+                beta: parseFloat(betaInput.value) || 20.0,
+                phraseMagnitude: Number.isFinite(parseFloat(phraseMagnitudeInput.value)) ? parseFloat(phraseMagnitudeInput.value) : 0.35,
+                accentMagnitude: Number.isFinite(parseFloat(accentMagnitudeInput.value)) ? parseFloat(accentMagnitudeInput.value) : 0.45,
+                fbHz: parseFloat(fbInput.value) || 150.0
+            });
+            refreshExportResult();
+        } catch (err) {
+            alert(`エラーが発生しました:\n${err.message}`);
+            console.error(err);
+        }
+    }
+
+    function refreshExportResult() {
+        updateExportResult();
+        renderPreview(convertedResult);
+        renderSingerMappings(convertedResult.stats.lines);
+        downloadBtn.disabled = false;
+        downloadZipBtn.disabled = false;
+    }
+
+    // Generator の結果は保持したまま、現在の出力設定で USTX を組み立てる。
+    // ダウンロード時にも呼び出し、出力設定だけの変更を即座に反映する。
+    function updateExportResult() {
+        const expressionValues = {
+            gen: parseInt(genInput.value, 10),
+            bre: parseInt(breInput.value, 10),
+            lpf: parseInt(lpfInput.value, 10),
+            norm: parseInt(normalizeInput.value, 10),
+            mod: parseInt(modInput.value, 10)
+        };
+        convertedResult = {
+            ...exportNoteSequenceToUstx(generatedNoteSequence, {
+                expressionValues,
+                trackNameFormat: trackNameFormatInput.value,
+                singerMappings: Object.fromEntries(singerMappings)
+            }),
+            stats: generatedNoteSequence.stats
+        };
     }
 
     async function readCinkFile(file) {
@@ -319,8 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     singerMappings.delete(speakerId);
                 }
-                if (currentFile) processFile(currentFile);
             };
+            singerInput.addEventListener('input', updateMapping);
             [singerInput, phonemizerSelect, rendererSelect].forEach(control => control.addEventListener('change', updateMapping));
 
             item.append(speakerLabel, singerInput, phonemizerSelect, rendererSelect);
@@ -344,7 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     downloadBtn.addEventListener('click', () => {
-        if (!convertedResult || !currentFile) return;
+        if (!generatedNoteSequence || !currentFile) return;
+        updateExportResult();
 
         const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
         const outputFileName = `${baseName}.ustx`;
@@ -354,11 +382,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     downloadZipBtn.addEventListener('click', async () => {
-        if (!convertedResult || !currentFile) return;
+        if (!generatedNoteSequence || !currentFile) return;
         if (typeof JSZip === 'undefined') {
             alert('ZIP出力用のライブラリを読み込めませんでした。通信状態を確認してから再試行してください。');
             return;
         }
+        updateExportResult();
 
         const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
         const zip = new JSZip();
