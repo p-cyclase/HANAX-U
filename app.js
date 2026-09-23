@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const portamentoInput = document.getElementById('portamentoInput');
     const alphaInput = document.getElementById('alphaInput');
     const betaInput = document.getElementById('betaInput');
+    const phraseMagnitudeInput = document.getElementById('phraseMagnitudeInput');
+    const accentMagnitudeInput = document.getElementById('accentMagnitudeInput');
     const fbInput = document.getElementById('fbInput');
     const genInput = document.getElementById('genInput');
     const breInput = document.getElementById('breInput');
@@ -68,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         processFile(file);
     }
 
-    [bpmInput, portamentoInput, alphaInput, betaInput, fbInput, genInput, breInput, lpfInput, normalizeInput, modInput, trackNameFormatInput].forEach(input => {
+    [bpmInput, portamentoInput, alphaInput, betaInput, phraseMagnitudeInput, accentMagnitudeInput, fbInput, genInput, breInput, lpfInput, normalizeInput, modInput, trackNameFormatInput].forEach(input => {
         input.addEventListener('change', () => {
             if (currentFile) processFile(currentFile);
         });
@@ -81,6 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const bpm = parseInt(bpmInput.value, 10) || 200;
             const alpha = parseFloat(alphaInput.value) || 3.0;
             const beta = parseFloat(betaInput.value) || 20.0;
+            const phraseMagnitude = parseFloat(phraseMagnitudeInput.value);
+            const accentMagnitude = parseFloat(accentMagnitudeInput.value);
             const fbHz = parseFloat(fbInput.value) || 150.0;
             const expressionValues = {
                 gen: parseInt(genInput.value, 10),
@@ -92,6 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             convertedResult = convertCinkToUstx(rawData, {
                 portamentoLengthMs, bpm, alpha, beta, fbHz,
+                phraseMagnitude: Number.isFinite(phraseMagnitude) ? phraseMagnitude : 0.35,
+                accentMagnitude: Number.isFinite(accentMagnitude) ? accentMagnitude : 0.45,
                 expressionValues,
                 trackNameFormat: trackNameFormatInput.value,
                 singerMappings: Object.fromEntries(singerMappings)
@@ -397,6 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
             portamentoLengthMs: portamentoInput.value,
             alpha: alphaInput.value,
             beta: betaInput.value,
+            phraseMagnitude: phraseMagnitudeInput.value,
+            accentMagnitude: accentMagnitudeInput.value,
             fbHz: fbInput.value,
             gen: genInput.value,
             bre: breInput.value,

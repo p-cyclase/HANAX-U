@@ -22,11 +22,6 @@ import math
 import argparse
 from typing import List, Dict, Any, Tuple, Optional
 
-# MIDI Note Constants
-TONE_LOW = 58   # A#3
-TONE_MID = 60   # C4
-TONE_HIGH = 63  # D#4
-
 # Timing Constants (quarter note = 480 ticks)
 MORA_TICKS = 240  # 8th note
 
@@ -520,11 +515,12 @@ def fujisaki_accent_response(t: float, beta: float = 20.0, gamma: float = 0.9) -
 
 def compute_fujisaki_pitches_for_line(line: Dict[str, Any], bpm: int = 180,
                                      alpha: float = 3.0, beta: float = 20.0,
-                                     fb_hz: float = 150.0) -> List[Tuple[Dict[str, Any], float]]:
+                                     fb_hz: float = 150.0, phrase_magnitude: float = 0.35,
+                                     accent_magnitude: float = 0.45) -> List[Tuple[Dict[str, Any], float]]:
     """
     Computes Fujisaki model fundamental frequency F0(t) for each mora in a dialogue line.
-    - Phrase commands (A_p = 0.35) are triggered at sentence start and after punctuation ("、") or phrase pauses.
-    - Accent commands (A_a = 0.45) are active during moras with accent == 1.
+    - Phrase commands are triggered at sentence start and after punctuation ("、") or phrase pauses.
+    - Accent commands are active during moras with accent == 1.
     - Returns list of (mora_dict, f0_hz) tuples.
     """
     accent_phrases = line.get("accent_phrases", [])
@@ -559,8 +555,8 @@ def compute_fujisaki_pitches_for_line(line: Dict[str, Any], bpm: int = 180,
             phrase_command_times.append(current_time)
     
     log_fb = math.log(fb_hz)
-    ap_mag = 0.35  # Phrase command magnitude
-    aa_mag = 0.45  # Accent command magnitude
+    ap_mag = max(0.0, phrase_magnitude)
+    aa_mag = max(0.0, accent_magnitude)
     
     results = []
     for item in timeline_moras:
@@ -587,159 +583,99 @@ def compute_fujisaki_pitches_for_line(line: Dict[str, Any], bpm: int = 180,
         
     return results
 
-def quantize_fujisaki_pitches(f0_list: List[float]) -> Dict[float, int]:
-    """
-    Quantizes Fujisaki F0 values into 3 MIDI Note Tones:
-    Low (58 / A#3), Mid (60 / C4), High (63 / D#4).
-    Uses quantiles with clamping range protection.
-    """
-    valid = [f for f in f0_list if f > 0]
-    if not valid:
-        return {}
-    
-    sorted_f = sorted(valid)
-    n = len(sorted_f)
-    if n == 1 or sorted_f[0] == sorted_f[-1]:
-        return {f: TONE_MID for f in set(valid)}
-    
-    f33 = sorted_f[n // 3]
-    f67 = sorted_f[(2 * n) // 3]
-    
-    if f33 == f67:
-        min_f = sorted_f[0]
-        max_f = sorted_f[-1]
-        f33 = min_f + (max_f - min_f) / 3.0
-        f67 = min_f + 2.0 * (max_f - min_f) / 3.0
-    
-    mapping = {}
-    for f in set(valid):
-        if f < f33:
-            mapping[f] = TONE_LOW
-        elif f < f67:
-            mapping[f] = TONE_MID
-        else:
-            mapping[f] = TONE_HIGH
-            
-    return mapping
-
 # ==============================================================================
 # Note Generation with Fujisaki Pitch Model & Special Rest Corrections
 # ==============================================================================
 
+def is_rest_text(text: str) -> bool:
+    return text in SOKUON_CHARS or text in QUESTION_CHARS or text in COMMA_CHARS or text in PUNCTUATION_CHARS or not text
+
+
+def hz_to_midi(frequency: float) -> float:
+    return 69 + 12 * math.log2(max(1.0, frequency) / 440.0)
+
 def build_notes_for_dialogue(line: Dict[str, Any], portamento_length: int = 60,
                              bpm: int = 180, alpha: float = 3.0, beta: float = 20.0,
-                             fb_hz: float = 150.0) -> List[Dict[str, Any]]:
-    """
-    Expands accent phrases into note sequence using Fujisaki Pitch Model:
-    - Prepend 1 mora (240 ticks) R rest note at track head, Tone = Low (58).
-    - Fujisaki Model calculates F0 for each mora, quantized into Low (58), Mid (60), High (63).
-    - Sokuon ("っ", "ッ") -> R rest note, Tone = High (63).
-    - Question Mark ("？", "?") -> R rest note, Tone = High (63). Duplicate ending R removed.
-    - Comma ("、", ",") -> R rest note, Tone = High (63) if prev mora accented else Low (58).
-    - Sentence ending R rest note -> Tone = Low (58).
-    - Portamento enabled for ALL notes including R notes.
-    - Vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}.
-    """
+                             fb_hz: float = 150.0, phrase_magnitude: float = 0.35,
+                             accent_magnitude: float = 0.45) -> List[Dict[str, Any]]:
+    """Builds semitone-quantized notes and explicit paired R rests at boundaries."""
     accent_phrases = line.get("accent_phrases", [])
-    
-    # Compute Fujisaki F0 values
-    fujisaki_results = compute_fujisaki_pitches_for_line(line, bpm=bpm, alpha=alpha, beta=beta, fb_hz=fb_hz)
+    fujisaki_results = compute_fujisaki_pitches_for_line(
+        line, bpm=bpm, alpha=alpha, beta=beta, fb_hz=fb_hz,
+        phrase_magnitude=phrase_magnitude, accent_magnitude=accent_magnitude)
     f0_values = [f0 for (_, f0) in fujisaki_results]
-    pitch_map = quantize_fujisaki_pitches(f0_values)
-    
-    notes = []
+    mora_events = [mora for phrase in accent_phrases for mora in phrase.get("moras", [])]
+
+    def fallback_tone(index: int) -> int:
+        f0 = f0_values[index] if index < len(f0_values) else fb_hz
+        return round(hz_to_midi(f0))
+
+    def next_voiced_tone(start_index: int) -> Optional[int]:
+        for index in range(start_index, len(mora_events)):
+            text = mora_events[index].get("text") or mora_events[index].get("hira") or ""
+            if not is_rest_text(text):
+                return fallback_tone(index)
+        return None
+
+    notes: List[Dict[str, Any]] = []
     current_pos = 0
-    
-    # 1. Prepend Leading R note (8th note = 240 ticks), Tone = Low (58)
-    leading_rest = create_note_object(
-        position=current_pos,
-        duration=MORA_TICKS,
-        tone=TONE_LOW,
-        lyric="R",
-        prev_tone=None,
-        portamento_length=portamento_length
-    )
-    notes.append(leading_rest)
-    current_pos += MORA_TICKS
-    prev_tone: Optional[int] = TONE_LOW
+    prev_tone: Optional[int] = None
+    prev_sung_tone: Optional[int] = None
     prev_mora_accented = False
-    
+
+    def append_rest(tone: int) -> None:
+        nonlocal current_pos, prev_tone
+        note = create_note_object(current_pos, MORA_TICKS, tone, "R", prev_tone, portamento_length)
+        notes.append(note)
+        current_pos += MORA_TICKS
+        prev_tone = note["tone"]
+
+    def previous_rest_tone(delta: int, fallback: int) -> int:
+        return (prev_sung_tone if prev_sung_tone is not None else fallback) + delta
+
+    # Track-leading R and every post-boundary leading R sit three semitones below the next voice.
+    append_rest((next_voiced_tone(0) if next_voiced_tone(0) is not None else fallback_tone(0)) - 3)
+
     fujisaki_idx = 0
     for ap_idx, ap in enumerate(accent_phrases):
-        moras = ap.get("moras", [])
-        for m_idx, mora in enumerate(moras):
+        phrase_ends_with_boundary = False
+        for mora in ap.get("moras", []):
             text = mora.get("text") or mora.get("hira") or ""
             accent = mora.get("accent", 0)
-            
-            # Retrieve Fujisaki pitch for this mora
-            f0 = f0_values[fujisaki_idx] if fujisaki_idx < len(f0_values) else fb_hz
+            fallback = fallback_tone(fujisaki_idx)
             fujisaki_idx += 1
-            
-            if text in SOKUON_CHARS:
-                lyric = "R"
-                tone = TONE_HIGH
-                prev_mora_accented = True
-            elif text in QUESTION_CHARS:
-                lyric = "R"
-                tone = TONE_HIGH
-                prev_mora_accented = True
-            elif text in COMMA_CHARS:
-                lyric = "R"
-                tone = TONE_HIGH if prev_mora_accented else TONE_LOW
-                prev_mora_accented = False
-            elif text in PUNCTUATION_CHARS or not text or text == '\ufffd':
-                lyric = "R"
-                tone = TONE_LOW
-                prev_mora_accented = False
-            else:
-                lyric = text
-                # Use Fujisaki quantized tone if available, fallback to accent status
-                tone = pitch_map.get(f0, TONE_HIGH if accent == 1 else (TONE_LOW if m_idx == 0 else TONE_MID))
-                prev_mora_accented = (tone == TONE_HIGH or accent == 1)
-            
-            note = create_note_object(
-                position=current_pos,
-                duration=MORA_TICKS,
-                tone=tone,
-                lyric=lyric,
-                prev_tone=prev_tone,
-                portamento_length=portamento_length
-            )
-            notes.append(note)
-            current_pos += MORA_TICKS
-            prev_tone = tone
-        
-        # Pause between accent phrases
-        pause_sec = ap.get("pause_sec", 0.0)
-        pause_mora = ap.get("pause_mora")
-        if (pause_sec > 0.05 or pause_mora is not None) and ap_idx < len(accent_phrases) - 1:
-            rest_tone = TONE_HIGH if prev_mora_accented else TONE_LOW
-            rest_note = create_note_object(
-                position=current_pos,
-                duration=MORA_TICKS,
-                tone=rest_tone,
-                lyric="R",
-                prev_tone=prev_tone,
-                portamento_length=portamento_length
-            )
-            notes.append(rest_note)
-            current_pos += MORA_TICKS
-            prev_tone = rest_tone
+            next_tone = next_voiced_tone(fujisaki_idx)
 
-    # 3. Sentence Ending R note (omit duplicate if line ends with R)
-    if notes and notes[-1]["lyric"] == "R":
-        pass
-    else:
-        ending_rest = create_note_object(
-            position=current_pos,
-            duration=MORA_TICKS,
-            tone=TONE_LOW,
-            lyric="R",
-            prev_tone=prev_tone,
-            portamento_length=portamento_length
-        )
-        notes.append(ending_rest)
-    
+            if text in SOKUON_CHARS:
+                append_rest(previous_rest_tone(3 if prev_mora_accented else -3, fallback))
+                phrase_ends_with_boundary = False
+            elif text in QUESTION_CHARS or text in COMMA_CHARS or text in PUNCTUATION_CHARS or not text:
+                tail_delta = 5 if text in QUESTION_CHARS else (3 if prev_mora_accented else -3)
+                append_rest(previous_rest_tone(tail_delta, fallback))
+                if next_tone is not None:
+                    append_rest(next_tone - 3)
+                prev_mora_accented = False
+                phrase_ends_with_boundary = True
+            else:
+                note = create_note_object(current_pos, MORA_TICKS, fallback, text, prev_tone, portamento_length)
+                notes.append(note)
+                current_pos += MORA_TICKS
+                prev_tone = note["tone"]
+                prev_sung_tone = note["tone"]
+                prev_mora_accented = accent == 1
+                phrase_ends_with_boundary = False
+
+        pause_sec = ap.get("pause_sec", 0.0)
+        if not phrase_ends_with_boundary and (pause_sec > 0.05 or ap.get("pause_mora") is not None) and ap_idx < len(accent_phrases) - 1:
+            fallback = fallback_tone(fujisaki_idx)
+            append_rest(previous_rest_tone(3 if prev_mora_accented else -3, fallback))
+            next_tone = next_voiced_tone(fujisaki_idx)
+            if next_tone is not None:
+                append_rest(next_tone - 3)
+            prev_mora_accented = False
+
+    if notes and notes[-1]["lyric"] != "R":
+        append_rest(previous_rest_tone(-3, prev_tone if prev_tone is not None else fallback_tone(fujisaki_idx)))
     return notes
 
 def create_note_object(position: int, duration: int, tone: int, lyric: str, 
@@ -797,12 +733,14 @@ def import_cink_to_prosody_project(cink_data: Any) -> Dict[str, Any]:
 
 def generate_note_sequence(prosody_project: Dict[str, Any], portamento_length: int = 60,
                            bpm: int = 180, alpha: float = 3.0, beta: float = 20.0,
-                           fb_hz: float = 150.0) -> Dict[str, Any]:
+                           fb_hz: float = 150.0, phrase_magnitude: float = 0.35,
+                           accent_magnitude: float = 0.45) -> Dict[str, Any]:
     """Stage 2: generates format-neutral notes from prosody data."""
     parts = []
     for idx, line in enumerate(prosody_project["lines"]):
         notes = build_notes_for_dialogue(line, portamento_length=portamento_length, bpm=bpm,
-                                         alpha=alpha, beta=beta, fb_hz=fb_hz)
+                                         alpha=alpha, beta=beta, fb_hz=fb_hz,
+                                         phrase_magnitude=phrase_magnitude, accent_magnitude=accent_magnitude)
         parts.append({
             "name": line.get("text", f"Line {idx+1}"),
             "duration": notes[-1]["position"] + notes[-1]["duration"] if notes else 0,
@@ -813,7 +751,8 @@ def generate_note_sequence(prosody_project: Dict[str, Any], portamento_length: i
         "lines": prosody_project["lines"],
         "parts": parts,
         "options": {"bpm": bpm, "portamento_length": portamento_length, "alpha": alpha,
-                    "beta": beta, "fb_hz": fb_hz},
+                    "beta": beta, "fb_hz": fb_hz, "phrase_magnitude": phrase_magnitude,
+                    "accent_magnitude": accent_magnitude},
     }
 
 
@@ -933,10 +872,12 @@ def export_note_sequence_to_ustx(note_sequence: Dict[str, Any],
 def convert_cink_to_ustx(cink_data: Any, portamento_length: int = 60, bpm: int = 180,
                          alpha: float = 3.0, beta: float = 20.0, fb_hz: float = 150.0,
                          singer_mappings: Optional[Dict[str, Dict[str, Any]]] = None,
-                         track_name_format: str = "number") -> Dict[str, Any]:
+                         track_name_format: str = "number", phrase_magnitude: float = 0.35,
+                         accent_magnitude: float = 0.45) -> Dict[str, Any]:
     """Backward-compatible entry point composed from the three conversion stages."""
     prosody_project = import_cink_to_prosody_project(cink_data)
-    note_sequence = generate_note_sequence(prosody_project, portamento_length, bpm, alpha, beta, fb_hz)
+    note_sequence = generate_note_sequence(prosody_project, portamento_length, bpm, alpha, beta, fb_hz,
+                                           phrase_magnitude, accent_magnitude)
     return export_note_sequence_to_ustx(note_sequence, singer_mappings, track_name_format)
 
 def save_ustx_file(ustx_dict: Dict[str, Any], output_path: str):
@@ -989,6 +930,8 @@ def main():
     parser.add_argument("--portamento", type=int, default=60, help="Portamento transition length in milliseconds (default: 60)")
     parser.add_argument("--alpha", type=float, default=3.0, help="Fujisaki alpha phrase decay parameter (default: 3.0)")
     parser.add_argument("--beta", type=float, default=20.0, help="Fujisaki beta accent rise parameter (default: 20.0)")
+    parser.add_argument("--phrase-magnitude", type=float, default=0.35, help="Fujisaki phrase component magnitude (default: 0.35)")
+    parser.add_argument("--accent-magnitude", type=float, default=0.45, help="Fujisaki accent component magnitude (default: 0.45)")
     parser.add_argument("--fb", type=float, default=150.0, help="Fujisaki base frequency Fb in Hz (default: 150.0)")
     
     args = parser.parse_args()
@@ -1005,7 +948,9 @@ def main():
     
     print("Converting to OpenUtau format using Fujisaki Model Pitch Engine...")
     ustx_data = convert_cink_to_ustx(cink_data, portamento_length=args.portamento, bpm=args.bpm,
-                                     alpha=args.alpha, beta=args.beta, fb_hz=args.fb)
+                                     alpha=args.alpha, beta=args.beta, fb_hz=args.fb,
+                                     phrase_magnitude=args.phrase_magnitude,
+                                     accent_magnitude=args.accent_magnitude)
     
     save_ustx_file(ustx_data, output_path)
     print(f"Successfully exported OpenUtau project to: {output_path}")

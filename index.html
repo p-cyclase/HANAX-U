@@ -58,6 +58,14 @@
                         <input type="number" id="betaInput" value="20.0" min="5.0" max="50.0" step="1.0">
                     </div>
                     <div class="option-group">
+                        <div class="option-copy"><label for="phraseMagnitudeInput">フレーズ成分の強さ</label><p>フレーズ境界から生じる音高変化の大きさです。</p></div>
+                        <input type="number" id="phraseMagnitudeInput" value="0.35" min="0" max="2" step="0.05">
+                    </div>
+                    <div class="option-group">
+                        <div class="option-copy"><label for="accentMagnitudeInput">アクセント成分の強さ</label><p>アクセント位置から生じる音高変化の大きさです。</p></div>
+                        <input type="number" id="accentMagnitudeInput" value="0.45" min="0" max="2" step="0.05">
+                    </div>
+                    <div class="option-group">
                         <div class="option-copy"><label for="fbInput">基底周波数（Fb Hz）</label><p>藤崎モデルの基準となる声の高さです。全体の音域を上下させます。目安は男性ボイスで100 Hz、女性ボイスで180 Hzです。</p></div>
                         <input type="number" id="fbInput" value="150" min="50" max="400" step="5">
                     </div>

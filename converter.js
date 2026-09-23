@@ -3,10 +3,6 @@
  * Strictly matches official OpenUtau project file schema (v0.7).
  */
 
-const TONE_LOW = 58;   // A#3
-const TONE_MID = 60;   // C4
-const TONE_HIGH = 63;  // D#4
-const REST_TONE = 60;  // Fallback tone for rests
 const MORA_TICKS = 240; // 8th note (240 ticks)
 
 const SOKUON_CHARS = new Set(["っ", "ッ"]);
@@ -64,7 +60,8 @@ function fujisakiAccentResponse(t, beta = 20.0, gamma = 0.9) {
 /**
  * Computes Fujisaki F0 fundamental frequency for each mora in line.
  */
-function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 150.0) {
+function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 150.0,
+    phraseMagnitude = 0.35, accentMagnitude = 0.45) {
     const accentPhrases = line.accent_phrases || [];
     const moraDurationSec = (60.0 / Number(bpm)) * 0.5;
 
@@ -96,8 +93,8 @@ function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0
     });
 
     const logFb = Math.log(fbHz);
-    const apMag = 0.35;
-    const aaMag = 0.45;
+    const apMag = phraseMagnitude;
+    const aaMag = accentMagnitude;
 
     const results = [];
     timelineMoras.forEach(item => {
@@ -129,43 +126,6 @@ function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0
     return results;
 }
 
-function quantizeFujisakiPitches(f0List) {
-    const valid = f0List.filter(f => f > 0);
-    if (valid.length === 0) return new Map();
-
-    const sorted = [...valid].sort((a, b) => a - b);
-    const n = sorted.length;
-    const mapping = new Map();
-
-    if (n === 1 || sorted[0] === sorted[n - 1]) {
-        sorted.forEach(f => mapping.set(f, TONE_MID));
-        return mapping;
-    }
-
-    let f33 = sorted[Math.floor(n / 3)];
-    let f67 = sorted[Math.floor((2 * n) / 3)];
-
-    if (f33 === f67) {
-        const minF = sorted[0];
-        const maxF = sorted[n - 1];
-        f33 = minF + (maxF - minF) / 3.0;
-        f67 = minF + (2.0 * (maxF - minF)) / 3.0;
-    }
-
-    const uniqueF = new Set(valid);
-    uniqueF.forEach(f => {
-        if (f < f33) {
-            mapping.set(f, TONE_LOW);
-        } else if (f < f67) {
-            mapping.set(f, TONE_MID);
-        } else {
-            mapping.set(f, TONE_HIGH);
-        }
-    });
-
-    return mapping;
-}
-
 /** Stage 1: import a source project into format-neutral prosody data. */
 function importCinkToProsodyProject(cinkData) {
     const lines = parseDialogueLines(cinkData);
@@ -187,7 +147,9 @@ function resolvePitchOptions(options = {}) {
     const alpha = options.alpha !== undefined ? options.alpha : 3.0;
     const beta = options.beta !== undefined ? options.beta : 20.0;
     const fbHz = options.fbHz !== undefined ? options.fbHz : 150.0;
-    return { bpm, portamentoLengthMs, alpha, beta, fbHz };
+    const phraseMagnitude = Number.isFinite(options.phraseMagnitude) ? Math.max(0, options.phraseMagnitude) : 0.35;
+    const accentMagnitude = Number.isFinite(options.accentMagnitude) ? Math.max(0, options.accentMagnitude) : 0.45;
+    return { bpm, portamentoLengthMs, alpha, beta, fbHz, phraseMagnitude, accentMagnitude };
 }
 
 function resolveExportOptions(options = {}) {
@@ -265,7 +227,8 @@ function generateNoteSequence(prosodyProject, options = {}) {
     lines.forEach((line, idx) => {
         const partName = line.text || `Line ${idx + 1}`;
         const notes = buildNotesForDialogue(line, pitchOptions.portamentoLengthMs, pitchOptions.bpm,
-            pitchOptions.alpha, pitchOptions.beta, pitchOptions.fbHz, pitchStats);
+            pitchOptions.alpha, pitchOptions.beta, pitchOptions.fbHz, pitchOptions.phraseMagnitude,
+            pitchOptions.accentMagnitude, pitchStats);
         totalNotesCount += notes.length;
         const partDuration = notes.length > 0 ? (notes[notes.length - 1].position + notes[notes.length - 1].duration) : 0;
         noteParts.push({ name: partName, duration: partDuration, notes });
@@ -566,113 +529,97 @@ function makeAccentPhrasesFromText(text) {
 /**
  * Builds array of notes for a dialogue line using Fujisaki Model Pitch Engine.
  */
-function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, pitchStats) {
+function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, phraseMagnitude,
+    accentMagnitude, pitchStats) {
     const accentPhrases = line.accent_phrases || [];
-    const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz);
+    const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz,
+        phraseMagnitude, accentMagnitude);
     const f0Values = fujisakiResults.map(r => r.f0Hz);
-    const moraEvents = accentPhrases.flatMap((phrase, phraseIndex) =>
-        (phrase.moras || []).map(mora => ({ mora, phraseIndex }))
-    );
+    const moraEvents = accentPhrases.flatMap(phrase => phrase.moras || []);
 
     f0Values.forEach(f => {
         if (f < pitchStats.f0Min) pitchStats.f0Min = Math.round(f);
         if (f > pitchStats.f0Max) pitchStats.f0Max = Math.round(f);
     });
 
-    const notes = [];
-    let currentPos = 0;
-
-    const nextVoicedMidi = (startIndex) => {
+    const nextVoicedTone = startIndex => {
         for (let index = startIndex; index < moraEvents.length; index++) {
-            const text = moraEvents[index].mora.text || moraEvents[index].mora.hira || "";
-            if (!isRestText(text)) return hzToMidi(f0Values[index] || fbHz);
+            const text = moraEvents[index].text || moraEvents[index].hira || "";
+            if (!isRestText(text)) return Math.round(hzToMidi(f0Values[index] || fbHz));
         }
         return null;
     };
 
-    // Keep the original low-start policy, but place the rest relative to the
-    // first voiced note so it belongs to the same continuous contour.
-    let prevRenderedMidi = chooseRestMidi("leading", null, nextVoicedMidi(0), hzToMidi(f0Values[0] || fbHz));
-    const leadingRest = createNoteObject(currentPos, MORA_TICKS, prevRenderedMidi, "R", null, portamentoLengthMs);
-    notes.push(leadingRest);
-    currentPos += MORA_TICKS;
-    prevRenderedMidi = leadingRest.tone;
-    let prevSungMidi = null;
+    const notes = [];
+    let currentPos = 0;
+    let prevRenderedTone = null;
+    let prevSungTone = null;
     let prevMoraAccented = false;
-    pitchStats.rest++;
+    const appendRest = tone => {
+        const rest = createNoteObject(currentPos, MORA_TICKS, tone, "R", prevRenderedTone, portamentoLengthMs);
+        notes.push(rest);
+        currentPos += MORA_TICKS;
+        prevRenderedTone = rest.tone;
+        pitchStats.rest++;
+    };
+    const fallbackTone = index => Math.round(hzToMidi(f0Values[index] || fbHz));
+    const previousRestTone = (delta, fallback) => (Number.isFinite(prevSungTone) ? prevSungTone : fallback) + delta;
+    const nextLeadingRestTone = (nextTone, fallback) => (nextTone ?? fallback) - 3;
+
+    // A leading R is always three semitones below the first voiced mora.
+    appendRest(nextLeadingRestTone(nextVoicedTone(0), fallbackTone(0)));
 
     let fujisakiIdx = 0;
     accentPhrases.forEach((ap, apIdx) => {
-        const moras = ap.moras || [];
-        moras.forEach((mora, mIdx) => {
+        let phraseEndsWithBoundary = false;
+        (ap.moras || []).forEach(mora => {
             const text = mora.text || mora.hira || "";
             const accent = mora.accent || 0;
-
-            const f0 = f0Values[fujisakiIdx] !== undefined ? f0Values[fujisakiIdx] : fbHz;
+            const fallback = fallbackTone(fujisakiIdx);
             fujisakiIdx++;
-
-            let lyric, midiPitch;
-            const nextMidi = nextVoicedMidi(fujisakiIdx);
+            const nextTone = nextVoicedTone(fujisakiIdx);
 
             if (SOKUON_CHARS.has(text)) {
-                lyric = "R";
-                midiPitch = chooseRestMidi("high", prevSungMidi, nextMidi, hzToMidi(f0));
-                prevMoraAccented = true;
-                pitchStats.rest++;
-            } else if (QUESTION_CHARS.has(text)) {
-                lyric = "R";
-                midiPitch = chooseRestMidi("high", prevSungMidi, nextMidi, hzToMidi(f0));
-                prevMoraAccented = true;
-                pitchStats.rest++;
-            } else if (COMMA_CHARS.has(text)) {
-                lyric = "R";
-                midiPitch = chooseRestMidi(prevMoraAccented ? "high" : "low", prevSungMidi, nextMidi, hzToMidi(f0));
+                appendRest(previousRestTone(prevMoraAccented ? 3 : -3, fallback));
+                phraseEndsWithBoundary = false;
+            } else if (QUESTION_CHARS.has(text) || COMMA_CHARS.has(text) || PUNCTUATION_CHARS.has(text) || !text) {
+                // Boundary marks and pauseMora share the comma rule: trailing R,
+                // then a leading R for the following voiced mora when one exists.
+                const tailDelta = QUESTION_CHARS.has(text) ? 5 : (prevMoraAccented ? 3 : -3);
+                appendRest(previousRestTone(tailDelta, fallback));
+                if (nextTone !== null) appendRest(nextLeadingRestTone(nextTone, fallback));
                 prevMoraAccented = false;
-                pitchStats.rest++;
-                pitchStats.phraseResets++;
-            } else if (PUNCTUATION_CHARS.has(text) || !text) {
-                lyric = "R";
-                midiPitch = chooseRestMidi("low", prevSungMidi, nextMidi, hzToMidi(f0));
-                prevMoraAccented = false;
-                pitchStats.rest++;
+                phraseEndsWithBoundary = true;
                 pitchStats.phraseResets++;
             } else {
-                lyric = text;
-                midiPitch = hzToMidi(f0);
-                prevSungMidi = midiPitch;
+                const tone = fallback;
+                const note = createNoteObject(currentPos, MORA_TICKS, tone, text, prevRenderedTone, portamentoLengthMs);
+                notes.push(note);
+                currentPos += MORA_TICKS;
+                prevRenderedTone = note.tone;
+                prevSungTone = note.tone;
                 prevMoraAccented = accent === 1;
+                phraseEndsWithBoundary = false;
                 pitchStats.semitone++;
             }
-
-            const note = createNoteObject(currentPos, MORA_TICKS, midiPitch, lyric, prevRenderedMidi, portamentoLengthMs);
-            notes.push(note);
-            currentPos += MORA_TICKS;
-            prevRenderedMidi = Math.round(midiPitch);
         });
 
-        // Pause check
+        // VOICEVOX pauseMora is the same boundary as a COEIROINK comma.
         const pauseSec = ap.pause_sec || 0;
-        if ((pauseSec > 0.05 || ap.pause_mora) && apIdx < accentPhrases.length - 1) {
-            const restMidi = chooseRestMidi(prevMoraAccented ? "high" : "low", prevSungMidi, nextVoicedMidi(fujisakiIdx), prevRenderedMidi);
-            const restNote = createNoteObject(currentPos, MORA_TICKS, restMidi, "R", prevRenderedMidi, portamentoLengthMs);
-            notes.push(restNote);
-            currentPos += MORA_TICKS;
-            prevRenderedMidi = Math.round(restMidi);
-            pitchStats.rest++;
+        if (!phraseEndsWithBoundary && (pauseSec > 0.05 || ap.pause_mora) && apIdx < accentPhrases.length - 1) {
+            const fallback = fallbackTone(fujisakiIdx);
+            const nextTone = nextVoicedTone(fujisakiIdx);
+            appendRest(previousRestTone(prevMoraAccented ? 3 : -3, fallback));
+            if (nextTone !== null) appendRest(nextLeadingRestTone(nextTone, fallback));
+            prevMoraAccented = false;
             pitchStats.phraseResets++;
         }
     });
 
-    // 3. Sentence Ending R note
-    if (notes.length > 0 && notes[notes.length - 1].lyric === "R") {
-        // Do not duplicate R note
-    } else {
-        const endingMidi = chooseRestMidi("low", prevSungMidi, null, prevRenderedMidi);
-        const endingRest = createNoteObject(currentPos, MORA_TICKS, endingMidi, "R", prevRenderedMidi, portamentoLengthMs);
-        notes.push(endingRest);
-        pitchStats.rest++;
+    // When a sentence has no terminal R, append a low closing R.
+    if (notes.length > 0 && notes[notes.length - 1].lyric !== "R") {
+        appendRest(previousRestTone(-3, prevRenderedTone));
     }
-
     return notes;
 }
 
@@ -682,19 +629,6 @@ function isRestText(text) {
 
 function hzToMidi(frequency) {
     return 69 + 12 * Math.log2(Math.max(1, frequency) / 440);
-}
-
-function chooseRestMidi(policy, previousMidi, nextMidi, fallbackMidi) {
-    const anchors = [previousMidi, nextMidi].filter(Number.isFinite);
-    const centre = anchors.length ? anchors.reduce((sum, value) => sum + value, 0) / anchors.length : fallbackMidi;
-    const spanHigh = anchors.length ? Math.max(...anchors) : centre;
-    const spanLow = anchors.length ? Math.min(...anchors) : centre;
-    // High rests retain the former intent for sokuon/questions; low rests do
-    // likewise for phrase boundaries and endings. The small offset preserves
-    // that direction without breaking the surrounding melodic contour.
-    if (policy === "high") return Math.max(centre + 0.35, spanHigh - 0.1);
-    if (policy === "leading") return (nextMidi ?? fallbackMidi) - 0.6;
-    return Math.min(centre - 0.35, spanLow + 0.1);
 }
 
 function createNoteObject(position, duration, midiPitch, lyric, previousMidi, portamentoLengthMs) {
@@ -799,7 +733,6 @@ if (typeof module !== 'undefined' && module.exports) {
         exportNoteSequenceToUstx,
         resolveExportOptions,
         convertCinkToUstx,
-        parseDialogueLines,
-        quantizeFujisakiPitches
+        parseDialogueLines
     };
 }
