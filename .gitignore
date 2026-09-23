@@ -2,6 +2,9 @@
 sample/
 material/
 
+# Local scratch work
+scratch/
+
 # Python cache
 __pycache__/
 *.py[cod]
