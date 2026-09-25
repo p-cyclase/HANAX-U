@@ -58,14 +58,30 @@ header {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
 }
 
+.title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    margin-bottom: 0.5rem;
+}
+
 header h1 {
     font-size: 2.4rem;
     font-weight: 800;
     background: linear-gradient(90deg, #818cf8, #c084fc, #38bdf8);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
     letter-spacing: -0.02em;
+}
+
+.version-badge {
+    color: var(--text-muted);
+    border: 1px solid var(--card-border);
+    border-radius: 9999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 header p {
@@ -407,8 +423,21 @@ header p {
 }
 
 .mapping-speaker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--speaker-color, var(--text-main));
     font-size: 0.85rem;
     font-weight: 700;
+}
+
+.mapping-speaker::before {
+    content: '';
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: 0 0 auto;
+    background: var(--speaker-color, var(--text-muted));
+    border-radius: 9999px;
 }
 
 .singer-mapping-item input, .singer-mapping-item select {
@@ -562,6 +591,30 @@ header p {
     color: var(--text-main);
     text-align: left;
     line-height: 1.4;
+}
+
+.track-speaker {
+    display: inline-flex;
+    align-items: center;
+    color: var(--speaker-color, var(--text-main));
+    font-size: 0.98rem;
+    font-weight: 800;
+    line-height: 1.4;
+    margin-right: 0.35rem;
+}
+
+.speaker-style-tag {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.4rem;
+    color: var(--style-color, var(--text-muted));
+    background: var(--style-background, rgba(148, 163, 184, 0.16));
+    border: 1px solid var(--style-color, var(--card-border));
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.3;
 }
 
 .notes-timeline {

@@ -44,6 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_ARCHIVE_UNCOMPRESSED_SIZE = 50 * 1024 * 1024;
     const SUPPORTED_FILE_EXTENSIONS = new Set(['.cink', '.vvproj']);
     const PROCESSING_STATUS_MIN_DURATION_MS = 250;
+    const SPEAKER_HUES = [190, 152, 45, 330, 262, 28, 170, 350];
+    const STYLE_VARIANTS = [
+        { saturation: 82, lightness: 74 },
+        { saturation: 66, lightness: 80 },
+        { saturation: 95, lightness: 68 },
+        { saturation: 50, lightness: 84 }
+    ];
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -388,21 +395,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const speakerLabel = formatSpeakerLabel(lineInfo);
             const dialogueText = part.name;
 
-            let formattedHeader = "";
-            if (speakerLabel) {
-                formattedHeader = `${speakerLabel}「${dialogueText}」`;
-            } else {
-                formattedHeader = `「${dialogueText}」`;
-            }
-
             const trackItem = document.createElement('div');
             trackItem.className = 'track-item';
 
             const meta = document.createElement('div');
             meta.className = 'track-meta';
-            meta.innerHTML = `
-                <span class="track-dialogue-text">${escapeHtml(formattedHeader)}</span>
-            `;
+            if (speakerLabel) {
+                const speaker = document.createElement('span');
+                speaker.className = 'track-speaker';
+                appendSpeakerIdentity(speaker, lineInfo);
+
+                const dialogue = document.createElement('span');
+                dialogue.className = 'track-dialogue-text';
+                dialogue.textContent = `「${dialogueText}」`;
+                meta.append(speaker, dialogue);
+            } else {
+                const dialogue = document.createElement('span');
+                dialogue.className = 'track-dialogue-text';
+                dialogue.textContent = `「${dialogueText}」`;
+                meta.appendChild(dialogue);
+            }
 
             const timeline = document.createElement('div');
             timeline.className = 'notes-timeline';
@@ -464,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const speakerLabel = document.createElement('div');
             speakerLabel.className = 'mapping-speaker';
-            speakerLabel.textContent = formatSpeakerLabel(speaker);
+            appendSpeakerIdentity(speakerLabel, speaker);
 
             const singerInput = document.createElement('input');
             singerInput.type = 'text';
@@ -496,6 +508,41 @@ document.addEventListener('DOMContentLoaded', () => {
             item.append(speakerLabel, singerInput, phonemizerSelect, rendererSelect);
             singerMappingsContainer.appendChild(item);
         });
+    }
+
+    function appendSpeakerIdentity(element, line) {
+        const { speakerName, styleLabel } = getSpeakerIdentityDisplay(line);
+        if (!speakerName) return;
+
+        applySpeakerColor(element, line);
+        element.appendChild(document.createTextNode(speakerName));
+
+        if (styleLabel) {
+            const styleTag = document.createElement('span');
+            styleTag.className = 'speaker-style-tag';
+            styleTag.textContent = styleLabel;
+            element.appendChild(styleTag);
+        }
+    }
+
+    function applySpeakerColor(element, line) {
+        const speakerKey = line?.speaker_uuid || line?.speaker_name || line?.speaker_id;
+        if (!speakerKey) return;
+
+        const hue = SPEAKER_HUES[hashText(speakerKey) % SPEAKER_HUES.length];
+        const styleKey = line.style_id ?? line.style_name ?? '';
+        const variant = STYLE_VARIANTS[hashText(String(styleKey)) % STYLE_VARIANTS.length];
+        element.style.setProperty('--speaker-color', `hsl(${hue} 82% 74%)`);
+        element.style.setProperty('--style-color', `hsl(${hue} ${variant.saturation}% ${variant.lightness}%)`);
+        element.style.setProperty('--style-background', `hsl(${hue} ${variant.saturation}% ${variant.lightness}% / 0.16)`);
+    }
+
+    function hashText(value) {
+        let hash = 0;
+        for (const character of value) {
+            hash = ((hash * 31) + character.codePointAt(0)) >>> 0;
+        }
+        return hash;
     }
 
     function createMappingSelect(values, selectedValue, label) {
@@ -628,9 +675,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatSpeakerLabel(line) {
-        const speakerName = line.speaker_name || "";
-        const styleName = line.style_name || "";
+        const { speakerName, styleLabel } = getSpeakerIdentityDisplay(line);
         if (!speakerName) return "";
-        return styleName ? `${speakerName}（${styleName}）` : speakerName;
+        return styleLabel ? `${speakerName}（${styleLabel}）` : speakerName;
+    }
+
+    function getSpeakerIdentityDisplay(line) {
+        const speakerName = line.speaker_name || "";
+        const styleLabel = line.style_name || (line.style_id !== null && line.style_id !== undefined ? String(line.style_id) : "");
+        return { speakerName, styleLabel };
     }
 });
