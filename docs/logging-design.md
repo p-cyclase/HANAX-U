@@ -15,6 +15,18 @@ project-name.zip
 
 The existing standalone USTX download remains unchanged. The dialogue ZIP contains the dedicated `Log/` folder.
 
+## Planned LAB sidecar
+
+The LAB export planned in [the LAB export specification](lab-export-specification.md) adds a selectable ZIP content setting. `TXT only` remains the default and keeps the current ZIP layout. Selecting `TXT and LAB` adds a same-name sidecar file beside every dialogue TXT in `Export/`.
+
+```text
+Export/
+├─ project-name_001.txt
+└─ project-name_001.lab
+```
+
+When implemented, the log will record the selected ZIP content. For `TXT and LAB`, it will also record each LAB path and its label count. The current v0.1.1 release does not yet include LAB files.
+
 ## Contents
 
 The UTF-8 log contains the UTC generation time, source file and detected format, conversion settings, output naming option, result counts, and each track's name, singer setting, TXT path, and dialogue text.
