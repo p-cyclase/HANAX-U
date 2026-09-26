@@ -25,7 +25,7 @@ Export/
 └─ project-name_001.lab
 ```
 
-The log records the selected ZIP content. For `TXT and LAB`, it also records each LAB path and its label count.
+The log records the selected ZIP content. For `TXT and LAB`, it also records each LAB path and its label count. If a mora cannot be mapped to a vowel label, LAB export continues with `sil`; the log records a warning with the track, note position, and original mora.
 
 ## Contents
 
