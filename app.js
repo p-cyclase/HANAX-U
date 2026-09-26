@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (includeLab) {
                     const lab = buildLabFile(part.notes, convertedResult.ustxDict.bpm);
                     zip.file(`${outputStem}.lab`, lab.content);
-                    labOutputs.push({ path: `${outputStem}.lab`, labelCount: lab.labelCount });
+                    labOutputs.push({ path: `${outputStem}.lab`, labelCount: lab.labelCount, warnings: lab.warnings });
                 }
             });
             zip.file(`Log/${baseName}_conversion.log`, buildConversionLog(baseName, { includeLab, labOutputs }));
@@ -619,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let previousVowel = '';
+        const warnings = [];
         const lines = notes.map((note, index) => {
             const startTick = Number(note.position);
             const endTick = startTick + Number(note.duration);
@@ -626,14 +627,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`LABの${index + 1}番目のノート時刻が正しくありません。`);
             }
 
-            const label = getLabLabel(note.lyric, previousVowel);
+            const labelResult = getLabLabel(note.lyric, previousVowel);
+            const { label } = labelResult;
+            if (labelResult.warning) {
+                warnings.push({
+                    noteIndex: index + 1,
+                    position: startTick,
+                    lyric: String(note.lyric ?? '') || '(空欄)',
+                    reason: labelResult.warning
+                });
+            }
             if (['a', 'i', 'u', 'e', 'o'].includes(label)) previousVowel = label;
             const start = formatLabTime(ticksToLabTime(startTick, bpm));
             const end = formatLabTime(ticksToLabTime(endTick, bpm));
             return `${start} ${end} ${label}`;
         });
 
-        return { content: `${lines.join('\n')}\n`, labelCount: lines.length };
+        return { content: `${lines.join('\n')}\n`, labelCount: lines.length, warnings };
     }
 
     function ticksToLabTime(tick, bpm) {
@@ -645,23 +655,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getLabLabel(lyric, previousVowel) {
-        if (lyric === 'R') return 'sil';
+        if (lyric === 'R') return { label: 'sil' };
 
         const hiragana = toHiragana(String(lyric || '').normalize('NFKC'));
-        if (hiragana === 'ん') return 'N';
+        if (hiragana === 'ん') return { label: 'N' };
         const characters = Array.from(hiragana);
         let target = characters.at(-1);
         if (target === 'ー' && characters.length === 1) {
-            if (['a', 'i', 'u', 'e', 'o'].includes(previousVowel)) return previousVowel;
-            throw new Error('長音記号の直前に母音ラベルがありません。');
+            if (['a', 'i', 'u', 'e', 'o'].includes(previousVowel)) return { label: previousVowel };
+            return { label: 'sil', warning: '長音記号の直前に母音ラベルがありません。' };
         }
         if (target === 'ー') target = characters.at(-2);
 
         const vowel = getVowelFromKana(target);
         if (!vowel) {
-            throw new Error(`「${lyric || '(空欄)'}」の母音をLABラベルへ変換できません。`);
+            return { label: 'sil', warning: '母音をLABラベルへ変換できません。' };
         }
-        return vowel;
+        return { label: vowel };
     }
 
     function toHiragana(text) {
@@ -748,6 +758,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const labOutput = labOutputs[index];
                 lines.push(`  lab_file: ${labOutput.path}`);
                 lines.push(`  lab_labels: ${labOutput.labelCount}`);
+                labOutput.warnings.forEach(warning => {
+                    lines.push(`  lab_warning: note ${warning.noteIndex}, position ${warning.position}, lyric ${JSON.stringify(warning.lyric)}, replaced with sil (${warning.reason})`);
+                });
             }
             lines.push(`  text: ${part.name}`);
         });
