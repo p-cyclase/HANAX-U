@@ -261,10 +261,46 @@ header p {
     display: flex;
     align-items: baseline;
     gap: 0.65rem;
+    position: relative;
+    padding: 0.15rem 2.2rem 0.15rem 0;
     cursor: pointer;
     color: var(--accent-cyan);
     font-size: 1rem;
     font-weight: 700;
+    list-style: none;
+    transition: color 160ms ease;
+}
+
+.advanced-settings summary::-webkit-details-marker {
+    display: none;
+}
+
+.advanced-settings summary::after {
+    content: '⌄';
+    position: absolute;
+    top: 50%;
+    right: 0.85rem;
+    color: var(--text-main);
+    font-size: 1.35rem;
+    line-height: 1;
+    transform: translateY(-50%);
+}
+
+.advanced-settings summary:hover {
+    color: #67e8f9;
+}
+
+.advanced-settings summary:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+}
+
+.advanced-settings[open] summary {
+    color: #67e8f9;
+}
+
+.advanced-settings[open] summary::after {
+    transform: translateY(-50%) rotate(180deg);
 }
 
 .advanced-settings summary small {
@@ -338,17 +374,6 @@ header p {
     font-size: 0.95rem;
 }
 
-.track-name-setting select {
-    align-self: flex-start;
-    min-width: 180px;
-    padding: 0.48rem 0.6rem;
-    color: var(--text-main);
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid var(--card-border);
-    border-radius: 0.35rem;
-    font: inherit;
-}
-
 .track-name-setting {
     display: flex;
     flex-direction: column;
@@ -366,6 +391,105 @@ header p {
     color: var(--text-muted);
     font-size: 0.78rem;
     line-height: 1.45;
+}
+
+.track-name-setting h3 {
+    font-size: 0.95rem;
+}
+
+.file-name-format {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.file-name-format legend {
+    padding: 0;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.file-name-choice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    color: var(--text-main);
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 0.55rem;
+    cursor: pointer;
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.file-name-choice:hover {
+    background: rgba(51, 65, 85, 0.52);
+    border-color: rgba(129, 140, 248, 0.62);
+}
+
+.file-name-choice:has(input:checked) {
+    background: rgba(79, 70, 229, 0.16);
+    border: 2px solid #6366f1;
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
+}
+
+.file-name-choice:has(input:focus-visible) {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+}
+
+.file-name-choice input,
+.lab-output-option input {
+    margin: 0;
+    accent-color: var(--primary);
+}
+
+.file-name-choice-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.file-name-choice-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.file-name-choice code {
+    overflow-wrap: anywhere;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.76rem;
+}
+
+.lab-output-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.4rem;
+    padding-left: 0.9rem;
+}
+
+.lab-output-option {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: fit-content;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 0.84rem;
+    font-weight: 600;
 }
 
 .expression-options {

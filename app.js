@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const lpfInput = document.getElementById('lpfInput');
     const normalizeInput = document.getElementById('normalizeInput');
     const modInput = document.getElementById('modInput');
-    const trackNameFormatInput = document.getElementById('trackNameFormatInput');
+    const trackNameFormatInputs = document.querySelectorAll('input[name="trackNameFormat"]');
     const zipContentInput = document.getElementById('zipContentInput');
     const singerMappingsContainer = document.getElementById('singerMappings');
     const fileError = document.getElementById('fileError');
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         convertedResult = {
             ...exportNoteSequenceToUstx(generatedNoteSequence, {
                 expressionValues,
-                trackNameFormat: trackNameFormatInput.value,
+                trackNameFormat: getTrackNameFormat(),
                 singerMappings: Object.fromEntries(singerMappings)
             }),
             stats: generatedNoteSequence.stats
@@ -583,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadZipBtn.disabled = true;
         try {
             updateExportResult();
-            const includeLab = zipContentInput.value === 'text-lab';
+            const includeLab = zipContentInput.checked;
             const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
             const zip = new JSZip();
             const labOutputs = [];
@@ -652,6 +652,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatLabTime(value) {
         return String(value).padStart(5, '0');
+    }
+
+    function getTrackNameFormat() {
+        return Array.from(trackNameFormatInputs).find(input => input.checked)?.value || 'number';
     }
 
     function getLabLabel(lyric, previousVowel) {
@@ -736,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ...Object.entries(settings).map(([key, value]) => `${key}: ${value}`),
             '',
             '[Output settings]',
-            `track_name_format: ${trackNameFormatLabels[trackNameFormatInput.value] || trackNameFormatInput.value}`,
+            `track_name_format: ${trackNameFormatLabels[getTrackNameFormat()] || getTrackNameFormat()}`,
             `zip_content: ${includeLab ? 'TXT・LAB' : 'TXTのみ'}`,
             `ustx: ${baseName}.ustx`,
             `text_directory: Export/`,
