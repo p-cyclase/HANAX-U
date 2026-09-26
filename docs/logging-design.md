@@ -15,9 +15,9 @@ project-name.zip
 
 The existing standalone USTX download remains unchanged. The dialogue ZIP contains the dedicated `Log/` folder.
 
-## Planned LAB sidecar
+## LAB sidecar
 
-The LAB export planned in [the LAB export specification](lab-export-specification.md) adds a selectable ZIP content setting. `TXT only` remains the default and keeps the current ZIP layout. Selecting `TXT and LAB` adds a same-name sidecar file beside every dialogue TXT in `Export/`.
+The LAB export described in [the LAB export specification](lab-export-specification.md) adds a selectable ZIP content setting. `TXT only` remains the default and keeps the current ZIP layout. Selecting `TXT and LAB` adds a same-name sidecar file beside every dialogue TXT in `Export/`.
 
 ```text
 Export/
@@ -25,7 +25,7 @@ Export/
 └─ project-name_001.lab
 ```
 
-When implemented, the log will record the selected ZIP content. For `TXT and LAB`, it will also record each LAB path and its label count. The current v0.1.1 release does not yet include LAB files.
+The log records the selected ZIP content. For `TXT and LAB`, it also records each LAB path and its label count.
 
 ## Contents
 

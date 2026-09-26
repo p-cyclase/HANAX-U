@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalizeInput = document.getElementById('normalizeInput');
     const modInput = document.getElementById('modInput');
     const trackNameFormatInput = document.getElementById('trackNameFormatInput');
+    const zipContentInput = document.getElementById('zipContentInput');
     const singerMappingsContainer = document.getElementById('singerMappings');
     const fileError = document.getElementById('fileError');
     const processingStatus = document.getElementById('processingStatus');
@@ -51,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { saturation: 95, lightness: 68 },
         { saturation: 50, lightness: 84 }
     ];
+    const LAB_TIME_UNITS_PER_SECOND = 10_000_000;
+    const USTX_TICKS_PER_QUARTER = 480;
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -577,27 +580,107 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('ZIP出力用のライブラリを読み込めませんでした。通信状態を確認してから再試行してください。');
             return;
         }
-        updateExportResult();
-
-        const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
-        const zip = new JSZip();
-        zip.file(`${baseName}.ustx`, convertedResult.ustxYaml);
-
-        convertedResult.ustxDict.voice_parts.forEach((part, index) => {
-            const track = convertedResult.ustxDict.tracks[index];
-            const trackName = track.track_name;
-            zip.file(`Export/${baseName}_${trackName}.txt`, part.name);
-        });
-        zip.file(`Log/${baseName}_conversion.log`, buildConversionLog(baseName));
-
         downloadZipBtn.disabled = true;
         try {
+            updateExportResult();
+            const includeLab = zipContentInput.value === 'text-lab';
+            const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+            const zip = new JSZip();
+            const labOutputs = [];
+            zip.file(`${baseName}.ustx`, convertedResult.ustxYaml);
+
+            convertedResult.ustxDict.voice_parts.forEach((part, index) => {
+                const track = convertedResult.ustxDict.tracks[index];
+                const trackName = track.track_name;
+                const outputStem = `Export/${baseName}_${trackName}`;
+                zip.file(`${outputStem}.txt`, part.name);
+                if (includeLab) {
+                    const lab = buildLabFile(part.notes, convertedResult.ustxDict.bpm);
+                    zip.file(`${outputStem}.lab`, lab.content);
+                    labOutputs.push({ path: `${outputStem}.lab`, labelCount: lab.labelCount });
+                }
+            });
+            zip.file(`Log/${baseName}_conversion.log`, buildConversionLog(baseName, { includeLab, labOutputs }));
+
             const blob = await zip.generateAsync({ type: 'blob' });
             triggerDownload(blob, `${baseName}.zip`);
+            clearFileError();
+        } catch (err) {
+            showFileError(`ZIPを出力できませんでした。${err.message}`);
+            console.error(err);
         } finally {
             downloadZipBtn.disabled = false;
         }
     });
+
+    function buildLabFile(notes, bpm) {
+        if (!Number.isFinite(Number(bpm)) || Number(bpm) <= 0) {
+            throw new Error('LABの時刻を計算するためのBPMが正しくありません。');
+        }
+
+        let previousVowel = '';
+        const lines = notes.map((note, index) => {
+            const startTick = Number(note.position);
+            const endTick = startTick + Number(note.duration);
+            if (!Number.isFinite(startTick) || !Number.isFinite(endTick) || endTick < startTick) {
+                throw new Error(`LABの${index + 1}番目のノート時刻が正しくありません。`);
+            }
+
+            const label = getLabLabel(note.lyric, previousVowel);
+            if (['a', 'i', 'u', 'e', 'o'].includes(label)) previousVowel = label;
+            const start = formatLabTime(ticksToLabTime(startTick, bpm));
+            const end = formatLabTime(ticksToLabTime(endTick, bpm));
+            return `${start} ${end} ${label}`;
+        });
+
+        return { content: `${lines.join('\n')}\n`, labelCount: lines.length };
+    }
+
+    function ticksToLabTime(tick, bpm) {
+        return Math.round((tick * 60 * LAB_TIME_UNITS_PER_SECOND) / (USTX_TICKS_PER_QUARTER * Number(bpm)));
+    }
+
+    function formatLabTime(value) {
+        return String(value).padStart(5, '0');
+    }
+
+    function getLabLabel(lyric, previousVowel) {
+        if (lyric === 'R') return 'sil';
+
+        const hiragana = toHiragana(String(lyric || '').normalize('NFKC'));
+        if (hiragana === 'ん') return 'N';
+        const characters = Array.from(hiragana);
+        let target = characters.at(-1);
+        if (target === 'ー' && characters.length === 1) {
+            if (['a', 'i', 'u', 'e', 'o'].includes(previousVowel)) return previousVowel;
+            throw new Error('長音記号の直前に母音ラベルがありません。');
+        }
+        if (target === 'ー') target = characters.at(-2);
+
+        const vowel = getVowelFromKana(target);
+        if (!vowel) {
+            throw new Error(`「${lyric || '(空欄)'}」の母音をLABラベルへ変換できません。`);
+        }
+        return vowel;
+    }
+
+    function toHiragana(text) {
+        return Array.from(text, character => {
+            const code = character.codePointAt(0);
+            return code >= 0x30A1 && code <= 0x30F6 ? String.fromCodePoint(code - 0x60) : character;
+        }).join('');
+    }
+
+    function getVowelFromKana(character) {
+        const vowelGroups = {
+            a: 'ぁあかがさざただなはばぱまやらわゎゃ',
+            i: 'ぃいきぎしじちぢにひびぴみりゐ',
+            u: 'ぅうくぐすずつづぬふぶぷむゆるゔゅ',
+            e: 'ぇえけげせぜてでねへべぺめれゑ',
+            o: 'ぉおこごそぞとどのほぼぽもよろをょ'
+        };
+        return Object.entries(vowelGroups).find(([, characters]) => characters.includes(character))?.[0] || '';
+    }
 
     function triggerDownload(blob, outputFileName) {
         const url = URL.createObjectURL(blob);
@@ -610,7 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
-    function buildConversionLog(baseName) {
+    function buildConversionLog(baseName, { includeLab = false, labOutputs = [] } = {}) {
         const { stats, ustxDict } = convertedResult;
         const trackNameFormatLabels = {
             number: '連番のみ',
@@ -644,6 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '',
             '[Output settings]',
             `track_name_format: ${trackNameFormatLabels[trackNameFormatInput.value] || trackNameFormatInput.value}`,
+            `zip_content: ${includeLab ? 'TXT・LAB' : 'TXTのみ'}`,
             `ustx: ${baseName}.ustx`,
             `text_directory: Export/`,
             `log_file: Log/${baseName}_conversion.log`,
@@ -660,6 +744,11 @@ document.addEventListener('DOMContentLoaded', () => {
             lines.push(`- ${track.track_name}`);
             lines.push(`  singer: ${track.singer || '(not set)'}`);
             lines.push(`  text_file: Export/${baseName}_${track.track_name}.txt`);
+            if (includeLab) {
+                const labOutput = labOutputs[index];
+                lines.push(`  lab_file: ${labOutput.path}`);
+                lines.push(`  lab_labels: ${labOutput.labelCount}`);
+            }
             lines.push(`  text: ${part.name}`);
         });
         return `${lines.join('\n')}\n`;

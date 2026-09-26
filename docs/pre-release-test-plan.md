@@ -68,7 +68,7 @@
 - [ ] `Export/`フォルダ内に、セリフTXTと同名のWavファイルが出力される。
 - [ ] PSDToolkit、YMMなど、実際に利用するソフトウェアでTXTとWavを対応付けられる。
 
-### 口パク用LABとWavの対応（LAB出力実装後）
+### 口パク用LABとWavの対応
 
 - [ ] ZIP内容を「TXTのみ」にした場合、従来どおりTXTだけが`Export/`に含まれ、LABは含まれない。
 - [ ] ZIP内容を「TXT・LAB」にした場合、各TXTと同名のLABが`Export/`に含まれる。

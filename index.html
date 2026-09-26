@@ -20,7 +20,7 @@
         <header>
             <div class="title-row">
                 <h1>HANAX-U</h1>
-                <span class="version-badge" aria-label="バージョン 0.1.1">v0.1.1</span>
+                <span class="version-badge" aria-label="バージョン 0.1.2">v0.1.2</span>
             </div>
             <p>COEIROINK（.cink）・VOICEVOX（.vvproj）のプロジェクトファイルからモーラとアクセント位置を取得し、藤崎モデル（F0生成モデル）に基づく変換によってOpenUTAU用ust（.ustx）を生成します。<br>あくまでアクセント位置のみ取得し再計算するため、元プロジェクトの音高を再現するものではありません。</p>
             <div class="badge-bar">
@@ -111,6 +111,16 @@
                             <option value="number">連番のみ（プロジェクト名_001）</option>
                             <option value="number-text">連番_セリフ（プロジェクト名_001_セリフ）</option>
                             <option value="number-singer-text">連番_singer_セリフ（プロジェクト名_001_singer_セリフ）</option>
+                        </select>
+                    </div>
+                    <div class="track-name-setting">
+                        <div class="option-copy">
+                            <label for="zipContentInput">セリフ付きZIPの内容</label>
+                            <p class="mapping-help">通常はTXTのみを選びます。PSDToolkitなどで口パクに使う場合は、TXT・LABを選びます。</p>
+                        </div>
+                        <select id="zipContentInput">
+                            <option value="text">TXTのみ</option>
+                            <option value="text-lab">TXT・LAB</option>
                         </select>
                     </div>
                     <section class="expression-settings" aria-labelledby="expressionSettingsTitle">
