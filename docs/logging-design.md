@@ -1,8 +1,8 @@
-# Conversion log design
+# 変換ログ設計
 
-## Location
+## 保存場所
 
-The browser application cannot safely create or rotate folders in a user's local filesystem. A conversion log is therefore included in every downloaded dialogue ZIP:
+ブラウザアプリケーションは、利用者のローカルファイルシステムに専用フォルダを安全に作成したり、既存ログをローテーションしたりできない。そのため、変換ログはセリフ付きZIPごとに同梱する。
 
 ```text
 project-name.zip
@@ -13,11 +13,11 @@ project-name.zip
    └─ project-name_conversion.log
 ```
 
-The existing standalone USTX download remains unchanged. The dialogue ZIP contains the dedicated `Log/` folder.
+USTX単体のダウンロードにはログを付けない。セリフ付きZIPには専用の`Log/`フォルダを含める。
 
-## LAB sidecar
+## LABの付随ファイル
 
-The LAB export described in [the LAB export specification](lab-export-specification.md) adds a selectable ZIP content setting. `TXT only` remains the default and keeps the current ZIP layout. Selecting `TXT and LAB` adds a same-name sidecar file beside every dialogue TXT in `Export/`.
+[口パク用LAB出力仕様](lab-export-specification.md)に基づき、セリフ付きZIP設定には「`.labも出力する`」チェックボックスを置く。初期状態はオフで、従来どおりのZIP構成を維持する。チェックした場合は、`Export/`内の各セリフTXTと同名のLABを追加する。
 
 ```text
 Export/
@@ -25,12 +25,12 @@ Export/
 └─ project-name_001.lab
 ```
 
-The log records the selected ZIP content. For `TXT and LAB`, it also records each LAB path and its label count. If a mora cannot be mapped to a vowel label, LAB export continues with `sil`; the log records a warning with the track, note position, and original mora.
+ログにはLAB出力が有効かどうかを記録する。有効な場合は、各LABのパスとラベル行数も記録する。モーラを母音ラベルへ変換できない場合は、LAB出力を`sil`として継続し、トラック・ノート位置・元のモーラを警告として記録する。
 
-## Contents
+## 記録内容
 
-The UTF-8 log contains the UTC generation time, source file and detected format, conversion settings, output naming option, result counts, and each track's name, singer setting, TXT path, and dialogue text.
+UTF-8のログには、UTCでの生成時刻、入力ファイルと判定した形式、変換設定、出力ファイル名形式、結果件数、各トラックの名前・singer設定・TXTパス・セリフを記録する。
 
-## Retention and rotation
+## 保持とローテーション
 
-One ZIP is one immutable conversion snapshot and contains exactly one log. The application does not persist logs between browser sessions, overwrite an existing download, or accumulate files in a local directory. Consequently no time- or size-based rotation is needed: retaining or deleting each ZIP is controlled by the user.
+1つのZIPは1回の変換を記録する不変のスナップショットであり、ログを1つだけ含む。アプリケーションはブラウザセッションをまたいでログを保持せず、既存ダウンロードの上書きやローカルフォルダへの蓄積も行わない。そのため、期間やサイズに基づくローテーションは不要であり、各ZIPを残すか削除するかは利用者が決める。
