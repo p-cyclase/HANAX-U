@@ -6,6 +6,8 @@
 
 ファイル名で対象機能と目的を区別する。現時点ではUSTX再同期モード用のデータを置いているが、将来はCOEIROINK・VOICEVOXの入力、通常のUSTX出力、ZIP、LAB、エラー表示など、他機能のテストデータもこのフォルダへ追加する。
 
+通常変換用テストプロジェクトの要件と追加手順は、[通常変換テストデータ仕様](../docs/normal-conversion-test-fixtures.md)を参照する。
+
 ## USTX再同期モード
 
 ### `resync_success.ustx`
