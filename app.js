@@ -618,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('LABの時刻を計算するためのBPMが正しくありません。');
         }
 
-        let previousVowel = '';
+        let carriedVowel = '';
         const warnings = [];
         const lines = notes.map((note, index) => {
             const startTick = Number(note.position);
@@ -627,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`LABの${index + 1}番目のノート時刻が正しくありません。`);
             }
 
-            const labelResult = getLabLabel(note.lyric, previousVowel);
+            const labelResult = getLabLabel(note.lyric, carriedVowel);
             const { label } = labelResult;
             if (labelResult.warning) {
                 warnings.push({
@@ -637,7 +637,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     reason: labelResult.warning
                 });
             }
-            if (['a', 'i', 'u', 'e', 'o'].includes(label)) previousVowel = label;
+            if (['a', 'i', 'u', 'e', 'o'].includes(label)) {
+                carriedVowel = label;
+            } else if (!labelResult.inheritsVowel) {
+                carriedVowel = '';
+            }
             const start = formatLabTime(ticksToLabTime(startTick, bpm));
             const end = formatLabTime(ticksToLabTime(endTick, bpm));
             return `${start} ${end} ${label}`;
@@ -658,24 +662,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(trackNameFormatInputs).find(input => input.checked)?.value || 'number';
     }
 
-    function getLabLabel(lyric, previousVowel) {
+    function getLabLabel(lyric, carriedVowel) {
         if (lyric === 'R') return { label: 'sil' };
 
-        const hiragana = toHiragana(String(lyric || '').normalize('NFKC'));
+        const sourceLyric = String(lyric || '');
+        if (isLabExtender(sourceLyric)) {
+            if (['a', 'i', 'u', 'e', 'o'].includes(carriedVowel)) {
+                return { label: carriedVowel, inheritsVowel: true };
+            }
+            return { label: 'sil', warning: '伸ばし記号の直前に引き継げる母音がありません。' };
+        }
+
+        const hiragana = toHiragana(sourceLyric.normalize('NFKC'));
         if (hiragana === 'ん') return { label: 'N' };
         const characters = Array.from(hiragana);
         let target = characters.at(-1);
-        if (target === 'ー' && characters.length === 1) {
-            if (['a', 'i', 'u', 'e', 'o'].includes(previousVowel)) return { label: previousVowel };
-            return { label: 'sil', warning: '長音記号の直前に母音ラベルがありません。' };
+        if (isLabExtender(target) && characters.length > 1) {
+            target = characters.at(-2);
         }
-        if (target === 'ー') target = characters.at(-2);
 
         const vowel = getVowelFromKana(target);
         if (!vowel) {
             return { label: 'sil', warning: '母音をLABラベルへ変換できません。' };
         }
         return { label: vowel };
+    }
+
+    function isLabExtender(lyric) {
+        const normalized = String(lyric || '').normalize('NFKC');
+        return normalized === '+' || normalized === '-' || normalized === 'ー';
     }
 
     function toHiragana(text) {
