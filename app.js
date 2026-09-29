@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileError = document.getElementById('fileError');
     const processingStatus = document.getElementById('processingStatus');
     const processingMessage = document.getElementById('processingMessage');
+    const resyncModeNotice = document.getElementById('resyncModeNotice');
+    const conversionSettings = document.querySelector('.options-bar');
+    const expressionSettings = document.querySelector('.expression-settings');
+    const singerMappingSection = document.querySelector('.singer-mapping-section');
+    const previewHeader = document.querySelector('.preview-header');
+    const statsGrid = document.querySelector('.stats-grid');
 
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -38,12 +44,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let convertedResult = null;
     let importedProsodyProject = null;
     let generatedNoteSequence = null;
+    let resyncProject = null;
+    let appMode = 'convert';
     let importRequestId = 0;
     const singerMappings = new Map();
 
     const MAX_INPUT_FILE_SIZE = 20 * 1024 * 1024;
     const MAX_ARCHIVE_UNCOMPRESSED_SIZE = 50 * 1024 * 1024;
-    const SUPPORTED_FILE_EXTENSIONS = new Set(['.cink', '.vvproj']);
+    const SUPPORTED_FILE_EXTENSIONS = new Set(['.cink', '.vvproj', '.ustx']);
     const PROCESSING_STATUS_MIN_DURATION_MS = 250;
     const SPEAKER_HUES = [190, 152, 45, 330, 262, 28, 170, 350];
     const STYLE_VARIANTS = [
@@ -94,10 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadZipBtn.disabled = true;
         const requestId = ++importRequestId;
         const processingStartedAt = showProcessingStatus('ファイルを読み込んでいます…');
-        processFile(file, requestId, processingStartedAt);
+        if (getFileExtension(file.name) === '.ustx') {
+            processUstxFile(file, requestId, processingStartedAt);
+        } else {
+            processFile(file, requestId, processingStartedAt);
+        }
     }
 
     function setSelectedFile(file) {
+        exitResyncMode();
         currentFile = file;
         importedProsodyProject = null;
         generatedNoteSequence = null;
@@ -110,6 +123,35 @@ document.addEventListener('DOMContentLoaded', () => {
         dropzoneTitle.textContent = `選択中: ${file.name}`;
         dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
         applySettingsBtn.hidden = false;
+    }
+
+    function enterResyncMode() {
+        appMode = 'resync';
+        conversionSettings.classList.add('mode-disabled');
+        expressionSettings.classList.add('mode-disabled');
+        singerMappingSection.classList.add('mode-disabled');
+        applySettingsBtn.hidden = true;
+        downloadBtn.hidden = true;
+        downloadZipBtn.querySelector('span').textContent = '🗜 再同期ZIPをダウンロード';
+        previewHeader.hidden = true;
+        statsGrid.hidden = true;
+        tracksContainer.hidden = true;
+        resyncModeNotice.textContent = 'USTX再同期モードです。トラック名を現在のファイル名形式で付け直し、アイテム名からTXTを出力します。LABは「.labも出力する」がオンの場合のみ作成します。';
+        resyncModeNotice.hidden = false;
+    }
+
+    function exitResyncMode() {
+        appMode = 'convert';
+        resyncProject = null;
+        conversionSettings.classList.remove('mode-disabled');
+        expressionSettings.classList.remove('mode-disabled');
+        singerMappingSection.classList.remove('mode-disabled');
+        downloadBtn.hidden = false;
+        downloadZipBtn.querySelector('span').textContent = '🗜 セリフ付きZIPをダウンロード';
+        previewHeader.hidden = false;
+        statsGrid.hidden = false;
+        tracksContainer.hidden = false;
+        resyncModeNotice.hidden = true;
     }
 
     applySettingsBtn.addEventListener('click', async () => {
@@ -136,6 +178,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 downloadBtn.disabled = false;
                 downloadZipBtn.disabled = false;
             }
+            console.error(err);
+        }
+    }
+
+    async function processUstxFile(file, requestId, processingStartedAt) {
+        try {
+            const project = await readUstxProject(file);
+            if (requestId !== importRequestId) return;
+            currentFile = file;
+            importedProsodyProject = null;
+            generatedNoteSequence = null;
+            convertedResult = null;
+            resyncProject = project;
+            const dropzoneTitle = dropzone.querySelector('h3');
+            const dropzoneSub = dropzone.querySelector('p');
+            dropzoneTitle.textContent = `選択中: ${file.name}`;
+            dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
+            enterResyncMode();
+            previewSection.style.display = 'flex';
+            downloadZipBtn.disabled = false;
+            await waitForMinimumProcessingDuration(processingStartedAt);
+            hideProcessingStatus();
+            scrollToDownloadActions();
+        } catch (err) {
+            if (requestId !== importRequestId) return;
+            hideProcessingStatus();
+            showFileError(`読み込めませんでした。${err.message}`);
             console.error(err);
         }
     }
@@ -575,6 +644,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     downloadZipBtn.addEventListener('click', async () => {
+        if (appMode === 'resync') {
+            await downloadResynchronizedZip();
+            return;
+        }
         if (!generatedNoteSequence || !currentFile) return;
         if (typeof JSZip === 'undefined') {
             alert('ZIP出力用のライブラリを読み込めませんでした。通信状態を確認してから再試行してください。');
@@ -613,6 +686,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    async function downloadResynchronizedZip() {
+        if (!resyncProject || !currentFile) return;
+        if (typeof JSZip === 'undefined') {
+            alert('ZIP出力用のライブラリを読み込めませんでした。通信状態を確認してから再試行してください。');
+            return;
+        }
+
+        downloadZipBtn.disabled = true;
+        try {
+            const includeLab = zipContentInput.checked;
+            const baseName = currentFile.name.replace(/\.[^/.]+$/, '');
+            const output = buildResynchronizedOutput(resyncProject, getTrackNameFormat(), includeLab);
+            const zip = new JSZip();
+            zip.file(`${baseName}.ustx`, output.ustxYaml);
+            output.tracks.forEach(track => {
+                const outputStem = `Export/${baseName}_${track.trackName}`;
+                zip.file(`${outputStem}.txt`, track.text);
+                if (includeLab) zip.file(`${outputStem}.lab`, track.lab.content);
+            });
+            zip.file(`Log/${baseName}_resync.log`, buildResyncLog(baseName, output, includeLab));
+            const blob = await zip.generateAsync({ type: 'blob' });
+            triggerDownload(blob, `${baseName}.zip`);
+            clearFileError();
+        } catch (err) {
+            showFileError(`再同期ZIPを出力できませんでした。${err.message}`);
+            console.error(err);
+        } finally {
+            downloadZipBtn.disabled = false;
+        }
+    }
+
     function buildLabFile(notes, bpm) {
         if (!Number.isFinite(Number(bpm)) || Number(bpm) <= 0) {
             throw new Error('LABの時刻を計算するためのBPMが正しくありません。');
@@ -648,6 +752,195 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         return { content: `${lines.join('\n')}\n`, labelCount: lines.length, warnings };
+    }
+
+    async function readUstxProject(file) {
+        if (typeof jsyaml === 'undefined') {
+            throw new Error('USTXを読み込むためのライブラリを読み込めませんでした。');
+        }
+        let data;
+        try {
+            data = jsyaml.load((await file.text()).replace(/^\uFEFF/, ''));
+        } catch (_) {
+            throw new Error('USTXのYAML形式が正しくありません。');
+        }
+        return validateResyncProject(data);
+    }
+
+    function validateResyncProject(data) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            throw new Error('USTXプロジェクトの内容が正しくありません。');
+        }
+        if (!Array.isArray(data.tracks) || !Array.isArray(data.voice_parts)) {
+            throw new Error('USTXにトラックまたはボイスパートが見つかりません。');
+        }
+        const resolution = Number(data.resolution || USTX_TICKS_PER_QUARTER);
+        if (!Number.isFinite(resolution) || resolution <= 0) {
+            throw new Error('USTXのresolutionが正しくありません。');
+        }
+        if (!Array.isArray(data.tempos) || data.tempos.length === 0) {
+            throw new Error('USTXにテンポ情報が見つかりません。');
+        }
+        const tempos = data.tempos.map((tempo, index) => {
+            const position = Number(tempo?.position);
+            const bpm = Number(tempo?.bpm);
+            if (!Number.isFinite(position) || position < 0 || !Number.isFinite(bpm) || bpm <= 0) {
+                throw new Error(`USTXの${index + 1}番目のテンポが正しくありません。`);
+            }
+            return { position, bpm };
+        }).sort((a, b) => a.position - b.position);
+        if (tempos[0].position !== 0) {
+            throw new Error('USTXの先頭テンポが0 ticksに設定されていません。');
+        }
+
+        const tracks = data.tracks.map((track, index) => {
+            if (!track || typeof track !== 'object') {
+                throw new Error(`USTXの${index + 1}番目のトラックが正しくありません。`);
+            }
+            return { index, singer: typeof track.singer === 'string' ? track.singer : '', originalName: String(track.track_name ?? '') };
+        });
+        const partsByTrack = tracks.map(() => []);
+        data.voice_parts.forEach((part, partIndex) => {
+            const trackIndex = Number(part?.track_no);
+            const position = Number(part?.position);
+            if (!Number.isInteger(trackIndex) || trackIndex < 0 || trackIndex >= tracks.length || !Number.isFinite(position) || position < 0 || !Array.isArray(part?.notes)) {
+                throw new Error(`USTXの${partIndex + 1}番目のボイスパートが正しくありません。`);
+            }
+            const notes = part.notes.map((note, noteIndex) => {
+                const notePosition = Number(note?.position);
+                const duration = Number(note?.duration);
+                if (!Number.isFinite(notePosition) || notePosition < 0 || !Number.isFinite(duration) || duration <= 0) {
+                    throw new Error(`USTXのパート${partIndex + 1}・ノート${noteIndex + 1}の位置または長さが正しくありません。`);
+                }
+                return { position: position + notePosition, duration, lyric: String(note?.lyric ?? ''), partIndex, noteIndex };
+            });
+            partsByTrack[trackIndex].push({ partIndex, position, name: String(part.name ?? ''), notes });
+        });
+
+        const normalizedTracks = tracks.map(track => {
+            const parts = partsByTrack[track.index].sort((a, b) => a.position - b.position || a.partIndex - b.partIndex);
+            const notes = parts.flatMap(part => part.notes).sort((a, b) => a.position - b.position || a.partIndex - b.partIndex || a.noteIndex - b.noteIndex);
+            let previousEnd = 0;
+            notes.forEach((note, index) => {
+                if (index > 0 && note.position < previousEnd) {
+                    throw new Error(`トラック${track.index + 1}に重なるノートがあります。重なるノートは別トラックへ分けてください。`);
+                }
+                previousEnd = note.position + note.duration;
+            });
+            return { ...track, parts, notes };
+        });
+        return { data, resolution, tempos, tracks: normalizedTracks };
+    }
+
+    function buildResynchronizedOutput(project, format, includeLab) {
+        const outputDict = jsyaml.load(jsyaml.dump(project.data, { noRefs: true }));
+        const tracks = project.tracks.map(track => {
+            const text = track.parts.map(part => part.name).join('');
+            const trackName = createResyncTrackName(track.index, track.singer, text, format);
+            outputDict.tracks[track.index].track_name = trackName;
+            const lab = includeLab ? buildResyncLabFile(track.notes, project.tempos, project.resolution) : null;
+            const warnings = [];
+            if (track.parts.length === 0) warnings.push('ボイスパートがありません。空のTXTを出力しました。');
+            track.parts.forEach(part => {
+                if (!part.name) warnings.push(`パート${part.partIndex + 1}のアイテム名が空です。`);
+            });
+            return { ...track, text, trackName, lab, warnings };
+        });
+        return {
+            ustxYaml: jsyaml.dump(outputDict, { noRefs: true, lineWidth: -1 }),
+            tracks,
+            internalName: String(project.data.name ?? ''),
+            tempoCount: project.tempos.length
+        };
+    }
+
+    function createResyncTrackName(index, singer, text, format) {
+        const ordinal = String(index + 1).padStart(3, '0');
+        const textFragment = filenameFragment(text, 32);
+        if (format === 'number') return ordinal;
+        if (format === 'number-text') return textFragment ? `${ordinal}_${textFragment}` : ordinal;
+        const singerFragment = filenameFragment(singer, 8) || 'singer';
+        return textFragment ? `${ordinal}_${singerFragment}_${textFragment}` : `${ordinal}_${singerFragment}`;
+    }
+
+    function buildResyncLabFile(notes, tempos, resolution) {
+        let carriedVowel = '';
+        let cursor = 0;
+        const warnings = [];
+        const rows = [];
+        const appendRow = (startTick, endTick, label) => {
+            if (endTick <= startTick) return;
+            rows.push(`${formatLabTime(ticksToLabTimeWithTempos(startTick, tempos, resolution))} ${formatLabTime(ticksToLabTimeWithTempos(endTick, tempos, resolution))} ${label}`);
+        };
+        notes.forEach((note, index) => {
+            if (note.position > cursor) {
+                appendRow(cursor, note.position, 'sil');
+                carriedVowel = '';
+            }
+            const result = getLabLabel(note.lyric, carriedVowel);
+            appendRow(note.position, note.position + note.duration, result.label);
+            if (result.warning) {
+                warnings.push({
+                    noteIndex: index + 1,
+                    position: note.position,
+                    lyric: note.lyric || '(空欄)',
+                    reason: result.warning
+                });
+            }
+            if (['a', 'i', 'u', 'e', 'o'].includes(result.label)) carriedVowel = result.label;
+            else if (!result.inheritsVowel) carriedVowel = '';
+            cursor = note.position + note.duration;
+        });
+        return { content: `${rows.join('\n')}${rows.length ? '\n' : ''}`, labelCount: rows.length, warnings };
+    }
+
+    function ticksToLabTimeWithTempos(targetTick, tempos, resolution) {
+        let elapsed = 0;
+        for (let index = 0; index < tempos.length; index += 1) {
+            const tempo = tempos[index];
+            const nextPosition = tempos[index + 1]?.position ?? targetTick;
+            if (targetTick <= tempo.position) break;
+            const end = Math.min(targetTick, nextPosition);
+            if (end > tempo.position) {
+                elapsed += ((end - tempo.position) * 60 * LAB_TIME_UNITS_PER_SECOND) / (resolution * tempo.bpm);
+            }
+            if (targetTick <= nextPosition) break;
+        }
+        return Math.round(elapsed);
+    }
+
+    function buildResyncLog(baseName, output, includeLab) {
+        const lines = [
+            'HANAX-U USTX Resynchronization Log',
+            `Generated (UTC): ${new Date().toISOString()}`,
+            '',
+            '[Source]',
+            `file: ${currentFile.name}`,
+            'format: USTX resynchronization',
+            `internal_name: ${output.internalName || '(not set)'}`,
+            `tempo_entries: ${output.tempoCount}`,
+            '',
+            '[Output settings]',
+            `track_name_format: ${getTrackNameFormat()}`,
+            `zip_content: ${includeLab ? 'TXT・LAB' : 'TXTのみ'}`,
+            `ustx: ${baseName}.ustx`,
+            '',
+            '[Tracks]'
+        ];
+        output.tracks.forEach(track => {
+            lines.push(`- ${track.trackName}`);
+            lines.push(`  original_track_name: ${track.originalName || '(not set)'}`);
+            lines.push(`  singer: ${track.singer || '(not set)'}`);
+            lines.push(`  text_file: Export/${baseName}_${track.trackName}.txt`);
+            lines.push(`  text: ${track.text}`);
+            track.warnings.forEach(warning => lines.push(`  warning: ${warning}`));
+            if (includeLab) {
+                lines.push(`  lab_file: Export/${baseName}_${track.trackName}.lab`);
+                lines.push(`  lab_labels: ${track.lab.labelCount}`);
+                track.lab.warnings.forEach(warning => lines.push(`  lab_warning: note ${warning.noteIndex}, position ${warning.position}, lyric ${JSON.stringify(warning.lyric)}, replaced with sil (${warning.reason})`));
+            }
+        });
+        return `${lines.join('\n')}\n`;
     }
 
     function ticksToLabTime(tick, bpm) {
