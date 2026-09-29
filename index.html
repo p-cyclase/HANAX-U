@@ -40,7 +40,6 @@
                 <input type="file" id="fileInput" class="file-input" accept=".cink,.vvproj,.ustx">
             </div>
             <p id="fileError" class="file-error" role="alert" hidden></p>
-            <p id="resyncModeNotice" class="resync-mode-notice" role="status" hidden></p>
 
             <div class="options-bar" aria-label="変換設定">
                 <section class="settings-section" aria-labelledby="basicSettingsTitle">
@@ -88,8 +87,8 @@
             </div>
         </main>
 
-        <!-- Preview Section -->
-        <section id="previewSection" class="glass-card preview-section">
+        <!-- Output Settings -->
+        <section id="outputSection" class="glass-card output-section">
             <div class="preview-controls">
                 <section class="settings-section export-settings" aria-labelledby="exportSettingsTitle">
                     <div class="export-settings-header">
@@ -103,6 +102,7 @@
                             </button>
                         </div>
                     </div>
+                    <p id="resyncModeNotice" class="resync-mode-notice" role="status" hidden></p>
                     <section class="track-name-setting" aria-labelledby="zipSettingsTitle">
                         <div class="option-copy">
                             <h3 id="zipSettingsTitle">セリフ付きZIP設定</h3>
@@ -161,6 +161,10 @@
                     </div>
                 </section>
             </div>
+        </section>
+
+        <!-- Preview Section -->
+        <section id="previewSection" class="glass-card preview-section">
             <div class="preview-header">
                 <h2>変換結果プレビュー</h2>
             </div>

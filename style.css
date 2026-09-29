@@ -649,7 +649,8 @@ header p {
     letter-spacing: 0.05em;
 }
 
-/* Preview Section */
+/* Output and Preview Sections */
+.output-section,
 .preview-section {
     display: none;
     flex-direction: column;

@@ -30,9 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const conversionSettings = document.querySelector('.options-bar');
     const expressionSettings = document.querySelector('.expression-settings');
     const singerMappingSection = document.querySelector('.singer-mapping-section');
-    const previewHeader = document.querySelector('.preview-header');
-    const statsGrid = document.querySelector('.stats-grid');
 
+    const outputSection = document.getElementById('outputSection');
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
     const statNotes = document.getElementById('statNotes');
@@ -133,9 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applySettingsBtn.hidden = true;
         downloadBtn.hidden = true;
         downloadZipBtn.querySelector('span').textContent = '🗜 再同期ZIPをダウンロード';
-        previewHeader.hidden = true;
-        statsGrid.hidden = true;
-        tracksContainer.hidden = true;
+        previewSection.style.display = 'none';
         resyncModeNotice.textContent = 'USTX再同期モードです。トラック名を現在のファイル名形式で付け直し、アイテム名からTXTを出力します。LABは「.labも出力する」がオンの場合のみ作成します。';
         resyncModeNotice.hidden = false;
     }
@@ -148,9 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
         singerMappingSection.classList.remove('mode-disabled');
         downloadBtn.hidden = false;
         downloadZipBtn.querySelector('span').textContent = '🗜 セリフ付きZIPをダウンロード';
-        previewHeader.hidden = false;
-        statsGrid.hidden = false;
-        tracksContainer.hidden = false;
         resyncModeNotice.hidden = true;
     }
 
@@ -196,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dropzoneTitle.textContent = `選択中: ${file.name}`;
             dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
             enterResyncMode();
-            previewSection.style.display = 'flex';
+            outputSection.style.display = 'flex';
             downloadZipBtn.disabled = false;
             await waitForMinimumProcessingDuration(processingStartedAt);
             hideProcessingStatus();
@@ -236,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateExportResult();
         renderPreview(convertedResult);
         renderSingerMappings(convertedResult.stats.lines);
+        outputSection.style.display = 'flex';
         downloadBtn.disabled = false;
         downloadZipBtn.disabled = false;
     }
@@ -243,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function scrollToDownloadActions() {
         requestAnimationFrame(() => {
             const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            previewSection.scrollIntoView({
+            outputSection.scrollIntoView({
                 behavior: reduceMotion ? 'auto' : 'smooth',
                 block: 'start'
             });
