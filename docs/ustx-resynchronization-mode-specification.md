@@ -165,12 +165,10 @@ UTAU音源によっては、suffixやエイリアス、VCなどの特殊音素�
 - LABラベルを判定できない歌詞がある。この場合のラベルは`sil`とする。
 - singerが空であり、既存の代替命名規則を使用した。
 
-## 今後更新する文書
+## 関連文書
 
-この仕様を実装する段階で、次の文書を現状に合わせて更新する。
-
-- `README.md`：上級者向けの再同期手順、通常モードとの違い、編集後LABへの対応策
-- `docs/lab-export-specification.md`：編集後USTXへのLAB再生成が通常モードではなく再同期モードで可能であること
-- `docs/logging-design.md`：再同期モードのログ内容
-- `docs/pre-release-test-plan.md`：再同期モードのブラウザ確認、OpenUtauでのWAV・TXT・LAB対応確認
-- `CHANGELOG.md`：実装・公開時の利用者向け変更履歴
+- [README](../README.md)：上級者向けの再同期手順、通常モードとの違い、編集後LABへの対応策
+- [口パク用LAB出力仕様](lab-export-specification.md)：通常モードと再同期モードにおけるLAB出力の共通仕様
+- [変換ログ設計](logging-design.md)：再同期モードを含むZIPログの記録方針
+- [公開前テスト計画](pre-release-test-plan.md)：再同期モードのブラウザ確認、OpenUtauでのWAV・TXT・LAB対応確認
+- [更新履歴](../CHANGELOG.md)：実装・公開時の利用者向け変更履歴
