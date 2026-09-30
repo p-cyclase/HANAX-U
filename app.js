@@ -854,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const textFragment = filenameFragment(text, 32);
         if (format === 'number') return ordinal;
         if (format === 'number-text') return textFragment ? `${ordinal}_${textFragment}` : ordinal;
-        const singerFragment = filenameFragment(singer, 8) || 'singer';
+        const singerFragment = singerFilenameFragment(singer, 8) || 'singer';
         return textFragment ? `${ordinal}_${singerFragment}_${textFragment}` : `${ordinal}_${singerFragment}`;
     }
 

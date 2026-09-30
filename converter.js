@@ -205,6 +205,12 @@ function filenameFragment(value, maxLength) {
     return Array.from(safe).slice(0, maxLength).join("");
 }
 
+function singerFilenameFragment(singer, maxLength) {
+    const source = sanitizeText(singer);
+    const lastFolderName = source.split(/[\\/]+/).filter(Boolean).pop() || source;
+    return filenameFragment(lastFolderName, maxLength);
+}
+
 function createTrackName(index, line, mapping, format) {
     const ordinal = String(index + 1).padStart(3, "0");
     if (format === "number") return ordinal;
@@ -212,7 +218,9 @@ function createTrackName(index, line, mapping, format) {
     const text = filenameFragment(line.text || "", 24);
     if (format === "number-text") return text ? `${ordinal}_${text}` : ordinal;
 
-    const singerOrSpeaker = filenameFragment(mapping?.singer || line.speaker_name || line.speaker_uuid || "speaker", 8);
+    const singerOrSpeaker = mapping?.singer
+        ? singerFilenameFragment(mapping.singer, 8)
+        : filenameFragment(line.speaker_name || line.speaker_uuid || "speaker", 8);
     return text ? `${ordinal}_${singerOrSpeaker}_${text}` : `${ordinal}_${singerOrSpeaker}`;
 }
 
