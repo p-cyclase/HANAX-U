@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const expressionSettings = document.querySelector('.expression-settings');
     const singerMappingSection = document.querySelector('.singer-mapping-section');
 
+    // A file must be imported before the generator can apply settings.
+    applySettingsBtn.hidden = true;
+
     const outputSection = document.getElementById('outputSection');
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');

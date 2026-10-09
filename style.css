@@ -89,6 +89,15 @@ header p {
     font-size: 0.95rem;
 }
 
+.repository-link {
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.repository-link:hover {
+    color: #67e8f9;
+}
+
 .badge-bar {
     display: flex;
     justify-content: center;
@@ -252,6 +261,10 @@ header p {
 
 .apply-settings-btn {
     align-self: flex-end;
+}
+
+.apply-settings-btn[hidden] {
+    display: none;
 }
 
 .settings-section {
