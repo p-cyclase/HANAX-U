@@ -1,5 +1,9 @@
 # 動画制作ツールとの連携状況
 
+> **対象：開発・検証向けの記録**
+>
+> 利用手順は[制作者向けワークフロー](for-creator.md)および[セリフ付きZIP・動画連携ガイド](zip-and-video-workflow.md)を参照する。この文書は、確認済み・未検証の環境と既知の挙動を記録する。
+
 HANAX-Uはv0.xの試験段階にあります。セリフ付きZIPは、OpenUtauから書き出すWAVと、セリフTXT・必要に応じたLABを対応させて動画制作へ渡すための機能です。この文書では、HANAX-Uが扱う範囲と、外部ツールとの連携状況を区別して説明します。
 
 ## HANAX-Uが扱う範囲
@@ -12,7 +16,7 @@ HANAX-Uは、ZIP内のUSTXに設定したプロジェクト名・トラック名
 
 セリフ付きZIPは、OpenUtauでWAVを書き出した後に、同名のTXT・LABを利用したい場合の下準備として使えます。動画制作ツールとの連携を使う場合は、まず短いセリフ1つで結果を確認してください。
 
-制作者の環境では、AviUtl 2・PSDToolkit 2・GCMZDrops 2と、ふじ氏の[AviUtl 2用プラグイン Voice Drop](https://github.com/Fuji07-2525/voice-drop)を組み合わせた監視連携を確認しています。Voice Dropのファイル名部分一致とキャラクターID設定を使い、singerを含むファイル名から任意のキャラクターIDを割り当てられます。具体的な流れは[制作者向けワークフロー](for-creator.md#aviutl-2でのwav監視)を参照してください。
+制作者の環境では、AviUtl 2・PSDToolkit 2・GCMZDrops 2と、ふじ氏の[AviUtl 2用プラグイン Voice Drop](https://github.com/Fuji07-2525/voice-drop)を組み合わせた監視連携を確認しています。Voice Dropのファイル名部分一致とキャラクターID設定を使い、singerを含むファイル名から任意のキャラクターIDを割り当てられます。具体的な流れは[制作者向けワークフロー](for-creator.md#キャラクターidに関する既知の問題対応策)を参照してください。
 
 ## 外部ツール側で決まること
 
