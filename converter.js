@@ -686,14 +686,7 @@ function createNoteObject(position, duration, midiPitch, lyric, previousMidi, po
             snap_first: true
         },
         vibrato: {
-            length: 0,
-            period: 15,
-            depth: 10,
-            in: 10,
-            out: 10,
-            shift: 0,
-            drift: 0,
-            vol_link: 0
+            length: 0
         },
         phoneme_expressions: [],
         phoneme_overrides: []
