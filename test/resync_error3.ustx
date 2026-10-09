@@ -1,4 +1,4 @@
-﻿﻿name: HANAX-U
+﻿name: HANAX-U
 comment: ""
 output_dir: Vocal
 cache_dir: UCache
@@ -261,7 +261,7 @@ voice_parts:
       - {x: -50, y: 0, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -276,7 +276,7 @@ voice_parts:
       - {x: -50, y: -30, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -291,7 +291,7 @@ voice_parts:
       - {x: -50, y: -30, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -306,7 +306,7 @@ voice_parts:
       - {x: -50, y: -40, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -321,7 +321,7 @@ voice_parts:
       - {x: -50, y: -10, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -336,7 +336,7 @@ voice_parts:
       - {x: -25, y: 30, shape: io}
       - {x: 25, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 175, depth: 25, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -351,7 +351,7 @@ voice_parts:
       - {x: -25, y: 0, shape: io}
       - {x: 25, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 175, depth: 25, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -366,7 +366,7 @@ voice_parts:
       - {x: -50, y: -30, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -381,7 +381,7 @@ voice_parts:
       - {x: -50, y: 10, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -396,7 +396,7 @@ voice_parts:
       - {x: -50, y: -20, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -411,7 +411,7 @@ voice_parts:
       - {x: -50, y: -40, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -426,7 +426,7 @@ voice_parts:
       - {x: -50, y: 40, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -441,7 +441,7 @@ voice_parts:
       - {x: -50, y: 50, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -456,7 +456,7 @@ voice_parts:
       - {x: -50, y: 0, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -471,7 +471,7 @@ voice_parts:
       - {x: -50, y: 0, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -486,7 +486,7 @@ voice_parts:
       - {x: -50, y: -20, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -501,7 +501,7 @@ voice_parts:
       - {x: -50, y: -10, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
@@ -516,7 +516,7 @@ voice_parts:
       - {x: -50, y: 30, shape: io}
       - {x: 50, y: 0, shape: io}
       snap_first: true
-    vibrato: {length: 0}
+    vibrato: {length: 0, period: 15, depth: 10, in: 10, out: 10, shift: 0, drift: 0, vol_link: 0}
     phoneme_expressions:
     - {index: 0, abbr: bre, value: 40}
     - {index: 0, abbr: gen, value: 5}
