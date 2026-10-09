@@ -438,19 +438,35 @@ function normalizeVoicevoxAccentPhrases(prosody) {
     return prosody.map(phrase => {
         if (!phrase || typeof phrase !== 'object' || !Array.isArray(phrase.moras)) return null;
         const accentPosition = Number.isInteger(phrase.accent) ? phrase.accent : 0;
-        const moras = phrase.moras.map((mora, index) => ({
+        const moras = phrase.moras.map(mora => ({
             text: voicevoxMoraToHiragana(mora?.text || ""),
-            accent: index + 1 === accentPosition ? 1 : 0,
             phoneme: ""
         })).filter(mora => mora.text);
         if (moras.length === 0) return null;
+        const hasValidAccentPosition = accentPosition >= 1 && accentPosition <= moras.length;
+        moras.forEach((mora, index) => {
+            const moraPosition = index + 1;
+            mora.accent = hasValidAccentPosition && (
+                accentPosition === 1
+                    ? moraPosition === 1
+                    : moraPosition >= 2 && moraPosition <= accentPosition
+            ) ? 1 : 0;
+        });
         const pauseMora = phrase.pauseMora;
+        // Normalize VOICEVOX's phrase-level pause into the same explicit comma
+        // mora used by COEIROINK. This keeps the Fujisaki timeline and R notes
+        // identical for otherwise equivalent inputs.
+        if (pauseMora) {
+            moras.push({ text: "、", accent: 0, phoneme: "" });
+        }
+        // VOICEVOX stores an interrogative ending on the accent phrase rather
+        // than as a mora. Normalize it to the explicit question mora used by
+        // COEIROINK so the shared boundary and R-pitch rules apply.
+        if (phrase.isInterrogative === true) {
+            moras.push({ text: "？", accent: 0, phoneme: "" });
+        }
         return {
-            moras,
-            ...(pauseMora ? {
-                pause_mora: true,
-                pause_sec: Number(pauseMora.vowelLength) || 0
-            } : {})
+            moras
         };
     }).filter(Boolean);
 }
@@ -591,8 +607,8 @@ function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz,
                 appendRest(previousRestTone(prevMoraAccented ? 3 : -3, fallback));
                 phraseEndsWithBoundary = false;
             } else if (QUESTION_CHARS.has(text) || COMMA_CHARS.has(text) || PUNCTUATION_CHARS.has(text) || !text) {
-                // Boundary marks and pauseMora share the comma rule: trailing R,
-                // then a leading R for the following voiced mora when one exists.
+                // Boundary marks use the comma rule: trailing R, then a leading
+                // R for the following voiced mora when one exists.
                 const tailDelta = QUESTION_CHARS.has(text) ? 5 : (prevMoraAccented ? 3 : -3);
                 appendRest(previousRestTone(tailDelta, fallback));
                 if (nextTone !== null) appendRest(nextLeadingRestTone(nextTone, fallback));
@@ -612,7 +628,6 @@ function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz,
             }
         });
 
-        // VOICEVOX pauseMora is the same boundary as a COEIROINK comma.
         const pauseSec = ap.pause_sec || 0;
         if (!phraseEndsWithBoundary && (pauseSec > 0.05 || ap.pause_mora) && apIdx < accentPhrases.length - 1) {
             const fallback = fallbackTone(fujisakiIdx);

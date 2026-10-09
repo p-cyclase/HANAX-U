@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HANAX-U (COEIROINK / VOICEVOX → OpenUTAU)</title>
-    <meta name="description" content="藤崎モデル（F0生成モデル）搭載。COEIROINK・VOICEVOXのプロジェクトファイルをOpenUTAU（.ustx）に自動変換するツール。">
+    <title>HANAX-U (COEIROINK / VOICEVOX → OpenUtau)</title>
+    <meta name="description" content="藤崎モデル（F0生成モデル）搭載。COEIROINK・VOICEVOXのプロジェクトファイルをOpenUtau（.ustx）に自動変換するツール。">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -20,9 +20,9 @@
         <header>
             <div class="title-row">
                 <h1>HANAX-U</h1>
-                <span class="version-badge" aria-label="バージョン 0.2.2">v0.2.2</span>
+                <span class="version-badge" aria-label="バージョン 0.2.3">v0.2.3</span>
             </div>
-            <p>COEIROINK（.cink）・VOICEVOX（.vvproj）のプロジェクトファイルからモーラとアクセント位置を取得し、藤崎モデル（F0生成モデル）に基づく変換によってOpenUTAU用ust（.ustx）を生成します。<br>あくまでアクセント位置のみ取得し再計算するため、元プロジェクトの音高を再現するものではありません。</p>
+            <p>COEIROINK（.cink）・VOICEVOX（.vvproj）のプロジェクトファイルからモーラとアクセント位置を取得し、藤崎モデル（F0生成モデル）に基づく変換によってOpenUtau用USTX（.ustx）を生成します。<br>あくまでアクセント位置のみ取得し再計算するため、元プロジェクトの音高を再現するものではありません。<br>詳しくはこちら：<a class="repository-link" href="https://github.com/p-cyclase/HANAX-U" target="_blank" rel="noopener noreferrer">GitHubリポジトリ</a></p>
             <div class="badge-bar">
                 <span class="badge"><span class="badge-dot mid"></span>藤崎モデル F0 → 半音単位のMIDI音高</span>
                 <span class="badge"><span class="badge-dot rest"></span>休符: 前後の音高に調和</span>

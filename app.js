@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const expressionSettings = document.querySelector('.expression-settings');
     const singerMappingSection = document.querySelector('.singer-mapping-section');
 
+    // A file must be imported before the generator can apply settings.
+    applySettingsBtn.hidden = true;
+
     const outputSection = document.getElementById('outputSection');
     const previewSection = document.getElementById('previewSection');
     const statLines = document.getElementById('statLines');
@@ -131,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
         singerMappingSection.classList.add('mode-disabled');
         applySettingsBtn.hidden = true;
         downloadBtn.hidden = true;
-        downloadZipBtn.querySelector('span').textContent = '🗜 再同期ZIPをダウンロード';
+        downloadZipBtn.querySelector('span').textContent = '🗜 整頓ZIPをダウンロード';
         previewSection.style.display = 'none';
-        resyncModeNotice.textContent = 'USTX再同期モードです。トラック名を現在のファイル名形式で付け直し、アイテム名からTXTを出力します。LABは「.labも出力する」がオンの場合のみ作成します。';
+        resyncModeNotice.textContent = 'USTX整頓モードです。トラック名を現在のファイル名形式で付け直し、アイテム名からTXTを出力します。LABは「.labも出力する」がオンの場合のみ作成します。';
         resyncModeNotice.hidden = false;
     }
 
@@ -700,12 +703,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 zip.file(`${outputStem}.txt`, track.text);
                 if (includeLab) zip.file(`${outputStem}.lab`, track.lab.content);
             });
-            zip.file(`Log/${baseName}_resync.log`, buildResyncLog(baseName, output, includeLab));
+            zip.file(`Log/${baseName}_ustx-organization.log`, buildResyncLog(baseName, output, includeLab));
             const blob = await zip.generateAsync({ type: 'blob' });
             triggerDownload(blob, `${baseName}.zip`);
             clearFileError();
         } catch (err) {
-            showFileError(`再同期ZIPを出力できませんでした。${err.message}`);
+            showFileError(`整頓ZIPを出力できませんでした。${err.message}`);
             console.error(err);
         } finally {
             downloadZipBtn.disabled = false;
@@ -906,12 +909,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function buildResyncLog(baseName, output, includeLab) {
         const lines = [
-            'HANAX-U USTX Resynchronization Log',
+            'HANAX-U USTX Organization Log',
             `Generated (UTC): ${new Date().toISOString()}`,
             '',
             '[Source]',
             `file: ${currentFile.name}`,
-            'format: USTX resynchronization',
+            'format: USTX organization',
             `internal_name: ${output.internalName || '(not set)'}`,
             `tempo_entries: ${output.tempoCount}`,
             '',
