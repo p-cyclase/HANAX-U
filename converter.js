@@ -604,7 +604,10 @@ function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz,
             const nextTone = nextVoicedTone(fujisakiIdx);
 
             if (SOKUON_CHARS.has(text)) {
-                appendRest(previousRestTone(prevMoraAccented ? 3 : -3, fallback));
+                // A sokuon is rendered as R, but remains a mora in the
+                // prosody model. Use its own Fujisaki F0 rather than an
+                // arbitrary offset from the preceding voiced mora.
+                appendRest(fallback);
                 phraseEndsWithBoundary = false;
             } else if (QUESTION_CHARS.has(text) || COMMA_CHARS.has(text) || PUNCTUATION_CHARS.has(text) || !text) {
                 // Boundary marks use the comma rule: trailing R, then a leading
