@@ -18,6 +18,7 @@
 実装や公開前確認のための文書です。通常の利用に読む必要はありません。
 
 - [口パク用LAB出力仕様](lab-export-specification.md)
+- [LABラベル判定規則](lab-labeling-rules.md)：通常モードとUSTX整頓モードに共通する母音・`sil`の判定規則。
 - [変換ログ設計](logging-design.md)
 - [USTX整頓モード仕様](ustx-organization-mode-specification.md)
 - [動画制作ツールとの連携状況](video-integration-status.md)：確認済み・未検証の環境に関する記録。
