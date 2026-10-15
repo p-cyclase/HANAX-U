@@ -957,31 +957,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lyric === 'R') return { label: 'sil' };
 
         const sourceLyric = String(lyric || '');
-        if (isLabExtender(sourceLyric)) {
-            if (['a', 'i', 'u', 'e', 'o'].includes(carriedVowel)) {
-                return { label: carriedVowel, inheritsVowel: true };
-            }
-            return { label: 'sil', warning: '伸ばし記号の直前に引き継げる母音がありません。' };
-        }
-
         const hiragana = toHiragana(sourceLyric.normalize('NFKC'));
-        if (hiragana === 'ん') return { label: 'N' };
         const characters = Array.from(hiragana);
-        let target = characters.at(-1);
-        if (isLabExtender(target) && characters.length > 1) {
-            target = characters.at(-2);
+        // Search backwards so suffixes such as "あ↑" use the underlying kana.
+        // Non-kana aliases (including + and VC notation) use the preceding vowel.
+        for (let index = characters.length - 1; index >= 0; index -= 1) {
+            const character = characters[index];
+            if (character === 'ん') return { label: 'N' };
+            const vowel = getVowelFromKana(character);
+            if (vowel) return { label: vowel };
         }
 
-        const vowel = getVowelFromKana(target);
-        if (!vowel) {
-            return { label: 'sil', warning: '母音をLABラベルへ変換できません。' };
+        if (['a', 'i', 'u', 'e', 'o'].includes(carriedVowel)) {
+            return { label: carriedVowel, inheritsVowel: true };
         }
-        return { label: vowel };
-    }
-
-    function isLabExtender(lyric) {
-        const normalized = String(lyric || '').normalize('NFKC');
-        return normalized === '+' || normalized === '-' || normalized === 'ー';
+        return { label: 'sil', warning: '歌詞内にかながなく、直前ノートから母音も継続できません。' };
     }
 
     function toHiragana(text) {
