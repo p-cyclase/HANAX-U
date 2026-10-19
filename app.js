@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let mappingHistory = readStoredValue(MAPPING_HISTORY_STORAGE_KEY, {});
 
     restoreSavedSettings();
-    bindSettingsPersistence();
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -145,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applySettingsBtn.hidden = true;
         downloadBtn.hidden = true;
         downloadZipBtn.querySelector('span').textContent = '🗜 整頓ZIPをダウンロード';
-        previewSection.style.display = 'none';
+        previewSection.hidden = true;
         resyncModeNotice.textContent = 'USTX整頓モードです。トラック名を現在のファイル名形式で付け直し、アイテム名からTXTを出力します。LABは「.labも出力する」がオンの場合のみ作成します。';
         resyncModeNotice.hidden = false;
     }
@@ -203,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dropzoneTitle.textContent = `選択中: ${file.name}`;
             dropzoneSub.textContent = `サイズ: ${(file.size / 1024).toFixed(1)} KB`;
             enterResyncMode();
-            outputSection.style.display = 'flex';
+            outputSection.hidden = false;
             downloadZipBtn.disabled = false;
             await waitForMinimumProcessingDuration(processingStartedAt);
             hideProcessingStatus();
@@ -244,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateExportResult();
         renderPreview(convertedResult);
         renderSingerMappings(convertedResult.stats.lines);
-        outputSection.style.display = 'flex';
+        outputSection.hidden = false;
         downloadBtn.disabled = false;
         downloadZipBtn.disabled = false;
     }
@@ -530,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tracksContainer.appendChild(trackItem);
         });
 
-        previewSection.style.display = 'flex';
+        previewSection.hidden = false;
     }
 
     function renderSingerMappings(lines) {
@@ -567,6 +566,9 @@ document.addEventListener('DOMContentLoaded', () => {
             singerInput.placeholder = 'singer名（任意）';
             singerInput.value = mapping.singer || '';
             singerInput.setAttribute('aria-label', `${formatSpeakerLabel(speaker)} の singer名`);
+            const singerField = document.createElement('div');
+            singerField.className = 'mapping-singer-field';
+            singerField.appendChild(singerInput);
 
             const phonemizerSelect = createMappingSelect([
                 { value: 'OpenUtau.Core.DefaultPhonemizer', label: 'DEFAULT' },
@@ -574,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ], mapping.phonemizer || 'OpenUtau.Core.DefaultPhonemizer', 'phonemizer');
             const rendererSelect = createMappingSelect(['CLASSIC', 'WORLDLINE-R'], mapping.renderer || 'CLASSIC', 'renderer');
 
-            const updateMapping = (remember = false) => {
+            const updateMapping = () => {
                 const singer = singerInput.value.trim();
                 if (singer) {
                     const mapping = {
@@ -583,44 +585,59 @@ document.addEventListener('DOMContentLoaded', () => {
                         renderer: rendererSelect.value
                     };
                     singerMappings.set(speakerId, mapping);
-                    if (remember) rememberMapping(speakerId, mapping);
                 } else {
                     singerMappings.delete(speakerId);
                 }
             };
-            singerInput.addEventListener('input', () => updateMapping(false));
+            singerInput.addEventListener('input', updateMapping);
             [singerInput, phonemizerSelect, rendererSelect].forEach(control => {
-                control.addEventListener('change', () => updateMapping(true));
+                control.addEventListener('change', updateMapping);
             });
 
             const history = getMappingHistory(speakerId);
             if (history.length > 0) {
-                const historyDetails = document.createElement('details');
-                historyDetails.className = 'mapping-history';
-                const summary = document.createElement('summary');
-                summary.textContent = '履歴から設定';
-                historyDetails.appendChild(summary);
                 const historyList = document.createElement('div');
                 historyList.className = 'mapping-history-list';
+                historyList.hidden = true;
+                historyList.setAttribute('role', 'listbox');
+                historyList.setAttribute('aria-label', `${formatSpeakerLabel(speaker)} のsinger設定履歴`);
+                const showHistory = () => {
+                    historyList.hidden = false;
+                    singerInput.setAttribute('aria-expanded', 'true');
+                    outputSection.classList.add('mapping-history-open');
+                };
+                const hideHistory = () => {
+                    historyList.hidden = true;
+                    singerInput.setAttribute('aria-expanded', 'false');
+                    outputSection.classList.remove('mapping-history-open');
+                };
+                singerInput.setAttribute('aria-haspopup', 'listbox');
+                singerInput.setAttribute('aria-expanded', 'false');
+                singerInput.addEventListener('focus', showHistory);
+                singerInput.addEventListener('click', showHistory);
+                singerInput.addEventListener('blur', () => window.setTimeout(hideHistory, 120));
+                singerInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') hideHistory();
+                });
                 history.forEach(historyMapping => {
                     const historyButton = document.createElement('button');
                     historyButton.type = 'button';
                     historyButton.className = 'mapping-history-choice';
                     historyButton.textContent = formatMappingHistoryLabel(historyMapping);
+                    historyButton.addEventListener('mousedown', event => event.preventDefault());
                     historyButton.addEventListener('click', () => {
                         singerInput.value = historyMapping.singer;
                         phonemizerSelect.value = historyMapping.phonemizer;
                         rendererSelect.value = historyMapping.renderer;
-                        updateMapping(true);
-                        historyDetails.open = false;
+                        updateMapping();
+                        hideHistory();
                     });
                     historyList.appendChild(historyButton);
                 });
-                historyDetails.appendChild(historyList);
-                speakerInfo.appendChild(historyDetails);
+                singerField.appendChild(historyList);
             }
 
-            item.append(speakerInfo, singerInput, phonemizerSelect, rendererSelect);
+            item.append(speakerInfo, singerField, phonemizerSelect, rendererSelect);
             singerMappingsContainer.appendChild(item);
         });
     }
@@ -701,18 +718,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function bindSettingsPersistence() {
-        [
-            bpmInput, portamentoInput, fbInput, phraseMagnitudeInput, alphaInput,
-            accentMagnitudeInput, betaInput, phraseBoundaryModeInput,
-            genInput, breInput, lpfInput, normalizeInput, modInput, zipContentInput,
-            ...trackNameFormatInputs
-        ].forEach(input => {
-            input.addEventListener('input', saveSettings);
-            input.addEventListener('change', saveSettings);
-        });
-    }
-
     function getMappingHistory(speakerId) {
         const history = mappingHistory[speakerId];
         return Array.isArray(history) ? history : [];
@@ -730,6 +735,14 @@ document.addEventListener('DOMContentLoaded', () => {
             [speakerId]: [mapping, ...withoutDuplicate].slice(0, MAX_MAPPING_HISTORY_PER_SPEAKER)
         };
         writeStoredValue(MAPPING_HISTORY_STORAGE_KEY, mappingHistory);
+    }
+
+    function saveOutputSettings() {
+        saveSettings();
+        if (appMode !== 'convert') return;
+        singerMappings.forEach((mapping, speakerId) => {
+            if (mapping.singer) rememberMapping(speakerId, mapping);
+        });
     }
 
     function formatMappingHistoryLabel(mapping) {
@@ -798,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const blob = new Blob([convertedResult.ustxYaml], { type: 'text/yaml;charset=utf-8;' });
 
         triggerDownload(blob, outputFileName);
+        saveOutputSettings();
     });
 
     downloadZipBtn.addEventListener('click', async () => {
@@ -834,6 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const blob = await zip.generateAsync({ type: 'blob' });
             triggerDownload(blob, `${baseName}.zip`);
+            saveOutputSettings();
             clearFileError();
         } catch (err) {
             showFileError(`ZIPを出力できませんでした。${err.message}`);
@@ -865,6 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
             zip.file(`Log/${baseName}_ustx-organization.log`, buildResyncLog(baseName, output, includeLab));
             const blob = await zip.generateAsync({ type: 'blob' });
             triggerDownload(blob, `${baseName}.zip`);
+            saveOutputSettings();
             clearFileError();
         } catch (err) {
             showFileError(`整頓ZIPを出力できませんでした。${err.message}`);

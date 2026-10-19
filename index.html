@@ -96,7 +96,7 @@
         </main>
 
         <!-- Output Settings -->
-        <section id="outputSection" class="glass-card output-section">
+        <section id="outputSection" class="glass-card output-section" hidden>
             <div class="preview-controls">
                 <section class="settings-section export-settings" aria-labelledby="exportSettingsTitle">
                     <div class="export-settings-header">
@@ -164,7 +164,7 @@
                     </section>
                     <div class="singer-mapping-section">
                         <h3>話者マッピング</h3>
-                        <p class="mapping-help">話者ごとにsinger、phonemizer、rendererを指定できます。空欄の場合は出力しません。<br>singer名にはSingersフォルダ内の音源フォルダ名または相対パスを直接入力してください。パスを含めた場合、ファイル名には末尾のフォルダ名を使用します。<br>過去の設定は自動適用されず、履歴から選択できます。</p>
+                        <p class="mapping-help">話者ごとにsinger、phonemizer、rendererを指定できます。空欄の場合は出力しません。<br>singer名にはSingersフォルダ内の音源フォルダ名または相対パスを直接入力してください。パスを含めた場合、ファイル名には末尾のフォルダ名を使用します。<br>過去の設定は自動適用されません。singer入力欄をクリックすると、同じ話者・スタイルに使った履歴を選べます。</p>
                         <div id="singerMappings" class="singer-mappings" aria-live="polite"></div>
                     </div>
                 </section>
@@ -172,7 +172,7 @@
         </section>
 
         <!-- Preview Section -->
-        <section id="previewSection" class="glass-card preview-section">
+        <section id="previewSection" class="glass-card preview-section" hidden>
             <div class="preview-header">
                 <h2>変換結果プレビュー</h2>
             </div>

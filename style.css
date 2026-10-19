@@ -20,12 +20,21 @@
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+    --layer-card: 0;
+    --layer-dropdown: 10;
+    --layer-overlay: 100;
 }
 
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+/* 表示状態はHTMLのhidden属性へ一元化する。レイアウト用のdisplay指定より優先する。 */
+[hidden] {
+    display: none !important;
 }
 
 body {
@@ -130,6 +139,8 @@ header p {
 
 /* Main Card */
 .glass-card {
+    position: relative;
+    z-index: var(--layer-card);
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     backdrop-filter: blur(16px);
@@ -191,17 +202,13 @@ header p {
 .processing-overlay {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    z-index: var(--layer-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
     background: rgba(2, 6, 23, 0.45);
     backdrop-filter: blur(2px);
-}
-
-.processing-overlay[hidden] {
-    display: none;
 }
 
 .processing-dialog {
@@ -261,10 +268,6 @@ header p {
 
 .apply-settings-btn {
     align-self: flex-end;
-}
-
-.apply-settings-btn[hidden] {
-    display: none;
 }
 
 .settings-section {
@@ -377,7 +380,7 @@ header p {
     padding: 0.4rem 0.6rem;
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid var(--card-border);
-    border-radius: 0.4rem;
+    border-radius: 0;
     color: var(--text-main);
     font-size: 0.9rem;
     text-align: center;
@@ -550,7 +553,7 @@ header p {
     color: var(--text-main);
     background: rgba(15, 23, 42, 0.75);
     border: 1px solid var(--card-border);
-    border-radius: 0.35rem;
+    border-radius: 0;
     font: inherit;
 }
 
@@ -594,52 +597,47 @@ header p {
     min-width: 0;
 }
 
-.mapping-history {
+.mapping-singer-field {
     position: relative;
-    margin-top: 0.35rem;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-}
-
-.mapping-history summary {
-    width: fit-content;
-    cursor: pointer;
-    color: var(--accent-cyan);
 }
 
 .mapping-history-list {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
     position: absolute;
-    z-index: 5;
-    width: min(330px, calc(100vw - 3rem));
-    margin-top: 0.4rem;
-    padding: 0.45rem;
+    z-index: var(--layer-dropdown);
+    width: 100%;
+    top: 100%;
+    left: 0;
+    overflow: hidden;
     background: rgba(15, 23, 42, 0.98);
     border: 1px solid var(--card-border);
-    border-radius: 0.4rem;
+    border-top: 0;
+    border-radius: 0;
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
 }
 
 .mapping-history-choice {
     width: 100%;
-    padding: 0.35rem 0.45rem;
+    padding: 0.5rem 0.55rem;
     overflow: hidden;
     color: var(--text-main);
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid var(--card-border);
-    border-radius: 0.3rem;
+    background: transparent;
+    border: 0;
     cursor: pointer;
     font: inherit;
 }
 
+.mapping-history-choice + .mapping-history-choice {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .mapping-history-choice:hover,
 .mapping-history-choice:focus-visible {
-    border-color: rgba(34, 211, 238, 0.6);
+    background: rgba(34, 211, 238, 0.12);
     outline: none;
 }
 
@@ -658,7 +656,7 @@ header p {
     color: var(--text-main);
     background: rgba(15, 23, 42, 0.75);
     border: 1px solid var(--card-border);
-    border-radius: 0.35rem;
+    border-radius: 0;
     font: inherit;
 }
 
@@ -724,9 +722,13 @@ header p {
 /* Output and Preview Sections */
 .output-section,
 .preview-section {
-    display: none;
+    display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.output-section.mapping-history-open {
+    z-index: var(--layer-dropdown);
 }
 
 .preview-controls {
