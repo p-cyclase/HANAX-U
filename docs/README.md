@@ -12,6 +12,7 @@
 
 - [音高生成アルゴリズム](pitch-generation-algorithm.md)
 - [話者マッピング設計](singer-mapping-design.md)
+- [ファイル命名規則](file-naming-rules.md)
 
 ## 開発・検証文書
 

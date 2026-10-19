@@ -232,31 +232,13 @@ function resolveSingerMapping(line, singerMappings) {
     };
 }
 
-function filenameFragment(value, maxLength) {
-    const safe = sanitizeText(value)
-        .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
-        .replace(/\s+/g, " ")
-        .replace(/[. ]+$/, "");
-    return Array.from(safe).slice(0, maxLength).join("");
-}
-
-function singerFilenameFragment(singer, maxLength) {
-    const source = sanitizeText(singer);
-    const lastFolderName = source.split(/[\\/]+/).filter(Boolean).pop() || source;
-    return filenameFragment(lastFolderName, maxLength);
-}
-
 function createTrackName(index, line, mapping, format) {
-    const ordinal = String(index + 1).padStart(3, "0");
-    if (format === "number") return ordinal;
-
-    const text = filenameFragment(line.text || "", 24);
-    if (format === "number-text") return text ? `${ordinal}_${text}` : ordinal;
-
-    const singerOrSpeaker = mapping?.singer
-        ? singerFilenameFragment(mapping.singer, 8)
-        : filenameFragment(line.speaker_name || line.speaker_uuid || "speaker", 8);
-    return text ? `${ordinal}_${singerOrSpeaker}_${text}` : `${ordinal}_${singerOrSpeaker}`;
+    return createOutputTrackName(index, {
+        text: line.text || "",
+        singer: mapping?.singer || "",
+        fallbackSinger: line.speaker_name || line.speaker_uuid || "speaker",
+        format,
+    });
 }
 
 /** Stage 2: turn prosody data into a format-neutral note sequence. */

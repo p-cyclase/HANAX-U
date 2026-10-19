@@ -28,6 +28,8 @@ HANAX-Uはv0.xの試験段階にあり、LABを含むファイル名対応は各
 | `連番_セリフ` | `project-name_001_セリフ` |
 | `連番_singer_セリフ` | `project-name_001_singer_セリフ` |
 
+文字数上限、相対パスのsinger名、使用できない文字の扱いは、[ファイル命名規則](file-naming-rules.md)に従う。
+
 ### LAB出力
 
 「`.labも出力する`」チェックボックスは初期状態でオフとする。オフの場合、ZIPの`Export/`にはトラックごとのTXTだけを出力する。チェックした場合は、各TXTと同名のLABも追加する。LABはPSDToolkitなどの動画制作ツールでの口パク利用を想定する。

@@ -1014,7 +1014,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const outputDict = jsyaml.load(jsyaml.dump(project.data, { noRefs: true }));
         const tracks = project.tracks.map(track => {
             const text = track.parts.map(part => part.name).join('');
-            const trackName = createResyncTrackName(track.index, track.singer, text, format);
+            const trackName = createOutputTrackName(track.index, {
+                text,
+                singer: track.singer,
+                fallbackSinger: 'singer',
+                format,
+            });
             outputDict.tracks[track.index].track_name = trackName;
             const lab = includeLab ? buildResyncLabFile(track.notes, project.tempos, project.resolution) : null;
             const warnings = [];
@@ -1030,15 +1035,6 @@ document.addEventListener('DOMContentLoaded', () => {
             internalName: String(project.data.name ?? ''),
             tempoCount: project.tempos.length
         };
-    }
-
-    function createResyncTrackName(index, singer, text, format) {
-        const ordinal = String(index + 1).padStart(3, '0');
-        const textFragment = filenameFragment(text, 32);
-        if (format === 'number') return ordinal;
-        if (format === 'number-text') return textFragment ? `${ordinal}_${textFragment}` : ordinal;
-        const singerFragment = singerFilenameFragment(singer, 8) || 'singer';
-        return textFragment ? `${ordinal}_${singerFragment}_${textFragment}` : `${ordinal}_${singerFragment}`;
     }
 
     function buildResyncLabFile(notes, tempos, resolution) {
