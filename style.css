@@ -590,6 +590,59 @@ header p {
     font-weight: 700;
 }
 
+.mapping-speaker-info {
+    min-width: 0;
+}
+
+.mapping-history {
+    position: relative;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.mapping-history summary {
+    width: fit-content;
+    cursor: pointer;
+    color: var(--accent-cyan);
+}
+
+.mapping-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    position: absolute;
+    z-index: 5;
+    width: min(330px, calc(100vw - 3rem));
+    margin-top: 0.4rem;
+    padding: 0.45rem;
+    background: rgba(15, 23, 42, 0.98);
+    border: 1px solid var(--card-border);
+    border-radius: 0.4rem;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+}
+
+.mapping-history-choice {
+    width: 100%;
+    padding: 0.35rem 0.45rem;
+    overflow: hidden;
+    color: var(--text-main);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--card-border);
+    border-radius: 0.3rem;
+    cursor: pointer;
+    font: inherit;
+}
+
+.mapping-history-choice:hover,
+.mapping-history-choice:focus-visible {
+    border-color: rgba(34, 211, 238, 0.6);
+    outline: none;
+}
+
 .mapping-speaker::before {
     content: '';
     width: 0.55rem;

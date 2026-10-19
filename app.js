@@ -65,6 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const LAB_TIME_UNITS_PER_SECOND = 10_000_000;
     const USTX_TICKS_PER_QUARTER = 480;
+    const SETTINGS_STORAGE_KEY = 'hanax-u-settings-v1';
+    const MAPPING_HISTORY_STORAGE_KEY = 'hanax-u-mapping-history-v1';
+    const MAX_MAPPING_HISTORY_PER_SPEAKER = 5;
+    let mappingHistory = readStoredValue(MAPPING_HISTORY_STORAGE_KEY, {});
+
+    restoreSavedSettings();
+    bindSettingsPersistence();
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -118,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
         importedProsodyProject = null;
         generatedNoteSequence = null;
         convertedResult = null;
+        // A mapping is selected explicitly from history for each newly imported file.
+        singerMappings.clear();
         downloadBtn.disabled = true;
         downloadZipBtn.disabled = true;
         const dropzoneTitle = dropzone.querySelector('h3');
@@ -546,9 +555,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = document.createElement('div');
             item.className = 'singer-mapping-item';
 
+            const speakerInfo = document.createElement('div');
+            speakerInfo.className = 'mapping-speaker-info';
             const speakerLabel = document.createElement('div');
             speakerLabel.className = 'mapping-speaker';
             appendSpeakerIdentity(speakerLabel, speaker);
+            speakerInfo.appendChild(speakerLabel);
 
             const singerInput = document.createElement('input');
             singerInput.type = 'text';
@@ -562,24 +574,169 @@ document.addEventListener('DOMContentLoaded', () => {
             ], mapping.phonemizer || 'OpenUtau.Core.DefaultPhonemizer', 'phonemizer');
             const rendererSelect = createMappingSelect(['CLASSIC', 'WORLDLINE-R'], mapping.renderer || 'CLASSIC', 'renderer');
 
-            const updateMapping = () => {
+            const updateMapping = (remember = false) => {
                 const singer = singerInput.value.trim();
                 if (singer) {
-                    singerMappings.set(speakerId, {
+                    const mapping = {
                         singer,
                         phonemizer: phonemizerSelect.value,
                         renderer: rendererSelect.value
-                    });
+                    };
+                    singerMappings.set(speakerId, mapping);
+                    if (remember) rememberMapping(speakerId, mapping);
                 } else {
                     singerMappings.delete(speakerId);
                 }
             };
-            singerInput.addEventListener('input', updateMapping);
-            [singerInput, phonemizerSelect, rendererSelect].forEach(control => control.addEventListener('change', updateMapping));
+            singerInput.addEventListener('input', () => updateMapping(false));
+            [singerInput, phonemizerSelect, rendererSelect].forEach(control => {
+                control.addEventListener('change', () => updateMapping(true));
+            });
 
-            item.append(speakerLabel, singerInput, phonemizerSelect, rendererSelect);
+            const history = getMappingHistory(speakerId);
+            if (history.length > 0) {
+                const historyDetails = document.createElement('details');
+                historyDetails.className = 'mapping-history';
+                const summary = document.createElement('summary');
+                summary.textContent = '履歴から設定';
+                historyDetails.appendChild(summary);
+                const historyList = document.createElement('div');
+                historyList.className = 'mapping-history-list';
+                history.forEach(historyMapping => {
+                    const historyButton = document.createElement('button');
+                    historyButton.type = 'button';
+                    historyButton.className = 'mapping-history-choice';
+                    historyButton.textContent = formatMappingHistoryLabel(historyMapping);
+                    historyButton.addEventListener('click', () => {
+                        singerInput.value = historyMapping.singer;
+                        phonemizerSelect.value = historyMapping.phonemizer;
+                        rendererSelect.value = historyMapping.renderer;
+                        updateMapping(true);
+                        historyDetails.open = false;
+                    });
+                    historyList.appendChild(historyButton);
+                });
+                historyDetails.appendChild(historyList);
+                speakerInfo.appendChild(historyDetails);
+            }
+
+            item.append(speakerInfo, singerInput, phonemizerSelect, rendererSelect);
             singerMappingsContainer.appendChild(item);
         });
+    }
+
+    function readStoredValue(key, fallback) {
+        try {
+            const raw = window.localStorage.getItem(key);
+            if (!raw) return fallback;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : fallback;
+        } catch (error) {
+            console.warn('保存済み設定を読み込めませんでした。', error);
+            return fallback;
+        }
+    }
+
+    function writeStoredValue(key, value) {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.warn('設定を保存できませんでした。', error);
+        }
+    }
+
+    function restoreSavedSettings() {
+        const saved = readStoredValue(SETTINGS_STORAGE_KEY, {});
+        const inputs = saved.inputs || {};
+        const inputElements = {
+            bpm: bpmInput,
+            portamentoLengthMs: portamentoInput,
+            fbHz: fbInput,
+            phraseMagnitude: phraseMagnitudeInput,
+            alpha: alphaInput,
+            accentMagnitude: accentMagnitudeInput,
+            beta: betaInput,
+            phraseBoundaryMode: phraseBoundaryModeInput,
+            gen: genInput,
+            bre: breInput,
+            lpf: lpfInput,
+            norm: normalizeInput,
+            mod: modInput
+        };
+        Object.entries(inputElements).forEach(([key, input]) => {
+            if (typeof inputs[key] === 'string' || typeof inputs[key] === 'number') {
+                input.value = String(inputs[key]);
+            }
+        });
+
+        const selectedFormat = saved.trackNameFormat;
+        if (typeof selectedFormat === 'string') {
+            const matchingInput = Array.from(trackNameFormatInputs).find(input => input.value === selectedFormat);
+            if (matchingInput) matchingInput.checked = true;
+        }
+        if (typeof saved.includeLab === 'boolean') {
+            zipContentInput.checked = saved.includeLab;
+        }
+    }
+
+    function saveSettings() {
+        writeStoredValue(SETTINGS_STORAGE_KEY, {
+            inputs: {
+                bpm: bpmInput.value,
+                portamentoLengthMs: portamentoInput.value,
+                fbHz: fbInput.value,
+                phraseMagnitude: phraseMagnitudeInput.value,
+                alpha: alphaInput.value,
+                accentMagnitude: accentMagnitudeInput.value,
+                beta: betaInput.value,
+                phraseBoundaryMode: phraseBoundaryModeInput.value,
+                gen: genInput.value,
+                bre: breInput.value,
+                lpf: lpfInput.value,
+                norm: normalizeInput.value,
+                mod: modInput.value
+            },
+            trackNameFormat: getTrackNameFormat(),
+            includeLab: zipContentInput.checked
+        });
+    }
+
+    function bindSettingsPersistence() {
+        [
+            bpmInput, portamentoInput, fbInput, phraseMagnitudeInput, alphaInput,
+            accentMagnitudeInput, betaInput, phraseBoundaryModeInput,
+            genInput, breInput, lpfInput, normalizeInput, modInput, zipContentInput,
+            ...trackNameFormatInputs
+        ].forEach(input => {
+            input.addEventListener('input', saveSettings);
+            input.addEventListener('change', saveSettings);
+        });
+    }
+
+    function getMappingHistory(speakerId) {
+        const history = mappingHistory[speakerId];
+        return Array.isArray(history) ? history : [];
+    }
+
+    function rememberMapping(speakerId, mapping) {
+        const existing = getMappingHistory(speakerId);
+        const withoutDuplicate = existing.filter(entry => (
+            entry.singer !== mapping.singer
+            || entry.phonemizer !== mapping.phonemizer
+            || entry.renderer !== mapping.renderer
+        ));
+        mappingHistory = {
+            ...mappingHistory,
+            [speakerId]: [mapping, ...withoutDuplicate].slice(0, MAX_MAPPING_HISTORY_PER_SPEAKER)
+        };
+        writeStoredValue(MAPPING_HISTORY_STORAGE_KEY, mappingHistory);
+    }
+
+    function formatMappingHistoryLabel(mapping) {
+        const phonemizer = mapping.phonemizer === 'OpenUtau.Plugin.Builtin.JapanesePresampPhonemizer'
+            ? 'JA VCV & CVVC'
+            : 'DEFAULT';
+        return `${mapping.singer} / ${phonemizer} / ${mapping.renderer}`;
     }
 
     function appendSpeakerIdentity(element, line) {
