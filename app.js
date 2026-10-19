@@ -900,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('LABの時刻を計算するためのBPMが正しくありません。');
         }
 
-        let carriedVowel = '';
+        let carriedLabel = 'sil';
         const warnings = [];
         const lines = notes.map((note, index) => {
             const startTick = Number(note.position);
@@ -909,21 +909,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`LABの${index + 1}番目のノート時刻が正しくありません。`);
             }
 
-            const labelResult = getLabLabel(note.lyric, carriedVowel);
-            const { label } = labelResult;
-            if (labelResult.warning) {
-                warnings.push({
-                    noteIndex: index + 1,
-                    position: startTick,
-                    lyric: String(note.lyric ?? '') || '(空欄)',
-                    reason: labelResult.warning
-                });
-            }
-            if (['a', 'i', 'u', 'e', 'o'].includes(label)) {
-                carriedVowel = label;
-            } else if (!labelResult.inheritsVowel) {
-                carriedVowel = '';
-            }
+            const label = getLabLabel(note.lyric, carriedLabel);
+            carriedLabel = label;
             const start = formatLabTime(ticksToLabTime(startTick, bpm));
             const end = formatLabTime(ticksToLabTime(endTick, bpm));
             return `${start} ${end} ${label}`;
@@ -1038,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function buildResyncLabFile(notes, tempos, resolution) {
-        let carriedVowel = '';
+        let carriedLabel = 'sil';
         let cursor = 0;
         const warnings = [];
         const rows = [];
@@ -1049,20 +1036,11 @@ document.addEventListener('DOMContentLoaded', () => {
         notes.forEach((note, index) => {
             if (note.position > cursor) {
                 appendRow(cursor, note.position, 'sil');
-                carriedVowel = '';
+                carriedLabel = 'sil';
             }
-            const result = getLabLabel(note.lyric, carriedVowel);
-            appendRow(note.position, note.position + note.duration, result.label);
-            if (result.warning) {
-                warnings.push({
-                    noteIndex: index + 1,
-                    position: note.position,
-                    lyric: note.lyric || '(空欄)',
-                    reason: result.warning
-                });
-            }
-            if (['a', 'i', 'u', 'e', 'o'].includes(result.label)) carriedVowel = result.label;
-            else if (!result.inheritsVowel) carriedVowel = '';
+            const label = getLabLabel(note.lyric, carriedLabel);
+            appendRow(note.position, note.position + note.duration, label);
+            carriedLabel = label;
             cursor = note.position + note.duration;
         });
         return { content: `${rows.join('\n')}${rows.length ? '\n' : ''}`, labelCount: rows.length, warnings };
@@ -1129,25 +1107,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(trackNameFormatInputs).find(input => input.checked)?.value || 'number';
     }
 
-    function getLabLabel(lyric, carriedVowel) {
-        if (lyric === 'R') return { label: 'sil' };
+    function getLabLabel(lyric, carriedLabel) {
+        if (lyric === 'R') return 'sil';
 
         const sourceLyric = String(lyric || '');
         const hiragana = toHiragana(sourceLyric.normalize('NFKC'));
         const characters = Array.from(hiragana);
         // Search backwards so suffixes such as "あ↑" use the underlying kana.
-        // Non-kana aliases (including + and VC notation) use the preceding vowel.
+        // Non-kana aliases (including + and VC notation) use the preceding label.
         for (let index = characters.length - 1; index >= 0; index -= 1) {
             const character = characters[index];
-            if (character === 'ん') return { label: 'N' };
+            if (character === 'ん') return 'N';
             const vowel = getVowelFromKana(character);
-            if (vowel) return { label: vowel };
+            if (vowel) return vowel;
         }
 
-        if (['a', 'i', 'u', 'e', 'o'].includes(carriedVowel)) {
-            return { label: carriedVowel, inheritsVowel: true };
-        }
-        return { label: 'sil', warning: '歌詞内にかながなく、直前ノートから母音も継続できません。' };
+        return carriedLabel || 'sil';
     }
 
     function toHiragana(text) {
