@@ -720,19 +720,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getMappingHistory(speakerId) {
         const history = mappingHistory[speakerId];
-        return Array.isArray(history) ? history : [];
+        if (!Array.isArray(history)) return [];
+
+        const singers = new Set();
+        return history.filter(entry => {
+            if (!entry || typeof entry.singer !== 'string' || singers.has(entry.singer)) {
+                return false;
+            }
+            singers.add(entry.singer);
+            return true;
+        });
     }
 
     function rememberMapping(speakerId, mapping) {
         const existing = getMappingHistory(speakerId);
-        const withoutDuplicate = existing.filter(entry => (
-            entry.singer !== mapping.singer
-            || entry.phonemizer !== mapping.phonemizer
-            || entry.renderer !== mapping.renderer
-        ));
+        const withoutSameSinger = existing.filter(entry => entry.singer !== mapping.singer);
         mappingHistory = {
             ...mappingHistory,
-            [speakerId]: [mapping, ...withoutDuplicate].slice(0, MAX_MAPPING_HISTORY_PER_SPEAKER)
+            [speakerId]: [mapping, ...withoutSameSinger].slice(0, MAX_MAPPING_HISTORY_PER_SPEAKER)
         };
         writeStoredValue(MAPPING_HISTORY_STORAGE_KEY, mappingHistory);
     }
