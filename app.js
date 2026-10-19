@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const betaInput = document.getElementById('betaInput');
     const phraseMagnitudeInput = document.getElementById('phraseMagnitudeInput');
     const accentMagnitudeInput = document.getElementById('accentMagnitudeInput');
+    const phraseBoundaryModeInput = document.getElementById('phraseBoundaryModeInput');
     const fbInput = document.getElementById('fbInput');
     const genInput = document.getElementById('genInput');
     const breInput = document.getElementById('breInput');
@@ -216,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 beta: parseFloat(betaInput.value) || 20.0,
                 phraseMagnitude: Number.isFinite(parseFloat(phraseMagnitudeInput.value)) ? parseFloat(phraseMagnitudeInput.value) : 0.35,
                 accentMagnitude: Number.isFinite(parseFloat(accentMagnitudeInput.value)) ? parseFloat(accentMagnitudeInput.value) : 0.45,
+                phraseBoundaryMode: phraseBoundaryModeInput.value,
                 fbHz: parseFloat(fbInput.value) || 150.0
             });
             refreshExportResult();
@@ -1017,6 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
             beta: betaInput.value,
             phraseMagnitude: phraseMagnitudeInput.value,
             accentMagnitude: accentMagnitudeInput.value,
+            phraseBoundaryMode: phraseBoundaryModeInput.value,
             fbHz: fbInput.value,
             gen: genInput.value,
             bre: breInput.value,

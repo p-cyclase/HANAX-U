@@ -371,7 +371,8 @@ header p {
     line-height: 1.45;
 }
 
-.option-group input[type="number"] {
+.option-group input[type="number"],
+.option-group select {
     width: 75px;
     padding: 0.4rem 0.6rem;
     background: rgba(15, 23, 42, 0.6);
@@ -381,6 +382,11 @@ header p {
     font-size: 0.9rem;
     text-align: center;
     font-weight: 600;
+}
+
+.option-group select {
+    width: min(190px, 42vw);
+    text-align: left;
 }
 
 .singer-mapping-section {
@@ -830,7 +836,7 @@ header p {
 
 @media (max-width: 560px) {
     .option-group { align-items: flex-start; flex-direction: column; gap: 0.5rem; }
-    .option-group input[type="number"] { width: 100%; text-align: left; }
+    .option-group input[type="number"], .option-group select { width: 100%; text-align: left; }
     .apply-settings-btn { align-self: stretch; justify-content: center; }
     .advanced-settings summary { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
     .expression-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }

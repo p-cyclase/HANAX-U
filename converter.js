@@ -61,7 +61,7 @@ function fujisakiAccentResponse(t, beta = 20.0, gamma = 0.9) {
  * Computes Fujisaki F0 fundamental frequency for each mora in line.
  */
 function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 150.0,
-    phraseMagnitude = 0.35, accentMagnitude = 0.45) {
+    phraseMagnitude = 0.35, accentMagnitude = 0.45, phraseBoundaryMode = "accumulate") {
     const accentPhrases = line.accent_phrases || [];
     const moraDurationSec = (60.0 / Number(bpm)) * 0.5;
 
@@ -96,14 +96,46 @@ function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0
     const apMag = phraseMagnitude;
     const aaMag = accentMagnitude;
 
+    // Each segment retains the prior phrase commands at a mode-specific rate.
+    // This lets the adaptive mode preserve low residuals while compressing only
+    // phrase energy that has already accumulated across boundaries.
+    const phraseSegments = [];
+    let activePhraseCommands = [{ time: phraseCommandTimes[0], weight: 1 }];
+    phraseSegments.push({ startTime: phraseCommandTimes[0], commands: activePhraseCommands });
+    const singlePhrasePeak = apMag * alpha / Math.E;
+
+    phraseCommandTimes.slice(1).forEach(commandTime => {
+        const previousPhraseValue = activePhraseCommands.reduce((sum, command) => (
+            sum + apMag * command.weight * fujisakiPhraseResponse(commandTime - command.time, alpha)
+        ), 0);
+        let carryRate = 1;
+        if (phraseBoundaryMode === "reset") {
+            carryRate = 0;
+        } else if (phraseBoundaryMode === "adaptive" && previousPhraseValue > singlePhrasePeak && singlePhrasePeak > 0) {
+            carryRate = singlePhrasePeak / previousPhraseValue;
+        }
+
+        activePhraseCommands = [
+            ...activePhraseCommands.map(command => ({ ...command, weight: command.weight * carryRate })),
+            { time: commandTime, weight: 1 }
+        ];
+        phraseSegments.push({ startTime: commandTime, commands: activePhraseCommands });
+    });
+
     const results = [];
+    let phraseSegmentIndex = 0;
     timelineMoras.forEach(item => {
         const t = item.startTime + (moraDurationSec / 2.0);
 
+        while (phraseSegmentIndex + 1 < phraseSegments.length
+            && phraseSegments[phraseSegmentIndex + 1].startTime <= t) {
+            phraseSegmentIndex += 1;
+        }
+
         let pT = 0.0;
-        phraseCommandTimes.forEach(tP => {
-            if (t >= tP) {
-                pT += apMag * fujisakiPhraseResponse(t - tP, alpha);
+        phraseSegments[phraseSegmentIndex].commands.forEach(command => {
+            if (t >= command.time) {
+                pT += apMag * command.weight * fujisakiPhraseResponse(t - command.time, alpha);
             }
         });
 
@@ -149,7 +181,10 @@ function resolvePitchOptions(options = {}) {
     const fbHz = options.fbHz !== undefined ? options.fbHz : 150.0;
     const phraseMagnitude = Number.isFinite(options.phraseMagnitude) ? Math.max(0, options.phraseMagnitude) : 0.35;
     const accentMagnitude = Number.isFinite(options.accentMagnitude) ? Math.max(0, options.accentMagnitude) : 0.45;
-    return { bpm, portamentoLengthMs, alpha, beta, fbHz, phraseMagnitude, accentMagnitude };
+    const phraseBoundaryMode = ["accumulate", "adaptive", "reset"].includes(options.phraseBoundaryMode)
+        ? options.phraseBoundaryMode
+        : "accumulate";
+    return { bpm, portamentoLengthMs, alpha, beta, fbHz, phraseMagnitude, accentMagnitude, phraseBoundaryMode };
 }
 
 function resolveExportOptions(options = {}) {
@@ -236,7 +271,7 @@ function generateNoteSequence(prosodyProject, options = {}) {
         const partName = line.text || `Line ${idx + 1}`;
         const notes = buildNotesForDialogue(line, pitchOptions.portamentoLengthMs, pitchOptions.bpm,
             pitchOptions.alpha, pitchOptions.beta, pitchOptions.fbHz, pitchOptions.phraseMagnitude,
-            pitchOptions.accentMagnitude, pitchStats);
+            pitchOptions.accentMagnitude, pitchOptions.phraseBoundaryMode, pitchStats);
         totalNotesCount += notes.length;
         const partDuration = notes.length > 0 ? (notes[notes.length - 1].position + notes[notes.length - 1].duration) : 0;
         noteParts.push({ name: partName, duration: partDuration, notes });
@@ -554,10 +589,10 @@ function makeAccentPhrasesFromText(text) {
  * Builds array of notes for a dialogue line using Fujisaki Model Pitch Engine.
  */
 function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, phraseMagnitude,
-    accentMagnitude, pitchStats) {
+    accentMagnitude, phraseBoundaryMode, pitchStats) {
     const accentPhrases = line.accent_phrases || [];
     const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz,
-        phraseMagnitude, accentMagnitude);
+        phraseMagnitude, accentMagnitude, phraseBoundaryMode);
     const f0Values = fujisakiResults.map(r => r.f0Hz);
     const moraEvents = accentPhrases.flatMap(phrase => phrase.moras || []);
 
