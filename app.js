@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const betaInput = document.getElementById('betaInput');
     const phraseMagnitudeInput = document.getElementById('phraseMagnitudeInput');
     const phraseCommandThresholdInput = document.getElementById('phraseCommandThresholdInput');
+    const terminalResetThresholdInput = document.getElementById('terminalResetThresholdInput');
     const accentMagnitudeInput = document.getElementById('accentMagnitudeInput');
     const fbInput = document.getElementById('fbInput');
     const genInput = document.getElementById('genInput');
@@ -225,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 beta: parseFloat(betaInput.value) || 20.0,
                 phraseMagnitude: Number.isFinite(parseFloat(phraseMagnitudeInput.value)) ? parseFloat(phraseMagnitudeInput.value) : 0.35,
                 phraseCommandThresholdSemitones: Number.isFinite(parseFloat(phraseCommandThresholdInput.value)) ? parseFloat(phraseCommandThresholdInput.value) : 2.5,
+                terminalResetThresholdSemitones: Number.isFinite(parseFloat(terminalResetThresholdInput.value)) ? parseFloat(terminalResetThresholdInput.value) : 2.5,
                 accentMagnitude: Number.isFinite(parseFloat(accentMagnitudeInput.value)) ? parseFloat(accentMagnitudeInput.value) : 0.45,
                 fbHz: parseFloat(fbInput.value) || 150.0
             });
@@ -671,6 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fbHz: fbInput,
             phraseMagnitude: phraseMagnitudeInput,
             phraseCommandThresholdSemitones: phraseCommandThresholdInput,
+            terminalResetThresholdSemitones: terminalResetThresholdInput,
             alpha: alphaInput,
             accentMagnitude: accentMagnitudeInput,
             beta: betaInput,
@@ -704,6 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fbHz: fbInput.value,
                 phraseMagnitude: phraseMagnitudeInput.value,
                 phraseCommandThresholdSemitones: phraseCommandThresholdInput.value,
+                terminalResetThresholdSemitones: terminalResetThresholdInput.value,
                 alpha: alphaInput.value,
                 accentMagnitude: accentMagnitudeInput.value,
                 beta: betaInput.value,
@@ -1168,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
             beta: betaInput.value,
             phraseMagnitude: phraseMagnitudeInput.value,
             phraseCommandThresholdSemitones: phraseCommandThresholdInput.value,
+            terminalResetThresholdSemitones: terminalResetThresholdInput.value,
             accentMagnitude: accentMagnitudeInput.value,
             fbHz: fbInput.value,
             gen: genInput.value,
