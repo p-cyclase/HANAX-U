@@ -26,10 +26,10 @@ HANAX-Uが保証を目指す中心範囲である。公開前テストでは、O
 
 次のツールを、低優先度の互換性テスト対象とする。
 
-| ツール | 位置付け | 基本確認 |
+| ツール | 位置付け | 基本確認 | 現在の状況 |
 | --- | --- | --- |
-| [UtaFormatix](https://sdercolin.github.io/utaformatix3/) | ブラウザ上で複数の歌声合成プロジェクト形式を変換するツール | HANAX-U出力USTXをエラーなく読み込み、変換操作へ進めること。 |
-| [LibreSVIP](https://soulmelody.github.io/LibreSVIP/) | 複数の歌声合成プロジェクト形式を扱う変換ツール | HANAX-U出力USTXをエラーなく読み込み、変換操作へ進めること。 |
+| [UtaFormatix](https://sdercolin.github.io/utaformatix3/) | ブラウザ上で複数の歌声合成プロジェクト形式を変換するツール | HANAX-U出力USTXをエラーなく読み込み、変換操作へ進めること。 | 2026年11月に読み込みを確認済み。 |
+| [LibreSVIP](https://soulmelody.github.io/LibreSVIP/) | 複数の歌声合成プロジェクト形式を扱う変換ツール | HANAX-U出力USTXをエラーなく読み込み、変換操作へ進めること。 | 未検証。 |
 
 両者はOpenUtauのUSTX形式資料で第三者によるUSTX実装として挙げられている。対象ツールは固定ではなく、利用実績・保守状況・USTXを直接読み書きする必要性を基に見直す。
 
@@ -67,11 +67,13 @@ HANAX-Uが保証を目指す中心範囲である。公開前テストでは、O
 
 上記を満たす場合は、特定ツールへの例外処理ではなく、USTX出力の標準的な完全性を上げる改善として採用する。個別ツールだけに合わせた分岐、意味のある音声パラメータの追加、継続的な保守が難しい回避策は原則として採用しない。
 
-## 現在の確認事項
+## UtaFormatixの確認結果と改善
 
-2026年11月時点で、HANAX-Uは各ノートの`vibrato`に`length: 0`だけを出力している。OpenUtauでは読み込み・再生できる一方、UtaFormatixは`period`、`depth`、`in`、`out`、`shift`、`drift`を必須項目として読む実装であるため、読み込み時のエラーにつながる。
+2026年11月、HANAX-U出力USTXをUtaFormatixへ入力したところ、`vibrato`が`length: 0`だけであることに起因する読み込みエラーを確認した。OpenUtauは不足項目を補完して読み込めるが、UtaFormatixは`period`、`depth`、`in`、`out`、`shift`、`drift`を必須項目として読む実装である。
 
-OpenUtauのUSTX形式資料には、`length: 0`で無効化した完全なビブラート初期値の例がある。このため、音声上はビブラートを無効のまま保ちつつ、完全な初期値を出力する案を互換性改善候補として扱う。実装前に、OpenUtauとUtaFormatixの両方で読み込みを確認する。
+このため、各ノートの`vibrato`には、ビブラートを無効にした完全な初期値を出力するよう変更した。値は`length: 0`、`period: 200`、`depth: 0`、`in: 0`、`out: 0`、`shift: 0`、`drift: 0`、`vol_link: 0`である。
+
+変更後、同じく2026年11月にUtaFormatixでHANAX-U出力USTXを正常に読み込めることを確認した。この確認は読み込みまでを対象とし、変換先形式での音声品質やピッチカーブの完全な再現は確認していない。
 
 ## 記録方法
 

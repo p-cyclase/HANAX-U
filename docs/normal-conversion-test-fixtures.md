@@ -68,7 +68,7 @@ VOICEVOXの通常変換正常系。少なくとも次を含める。
 - LABのオン・オフで、TXTとUSTXを維持したままLABの有無だけが変わる。
 - フラグ設定がUSTXのプロジェクト規定値へ反映される。
 - 話者マッピングの`singer`、`phonemizer`、`renderer`がUSTXへ反映される。
-- 各ノートの`vibrato`はOpenUtau互換のため`length: 0`だけを出力し、周期・深さなどの追加パラメータは持たない。
+- 各ノートの`vibrato`は、ビブラートを無効にした完全な初期値（`length: 0`、`period: 200`、`depth: 0`、`in: 0`、`out: 0`、`shift: 0`、`drift: 0`、`vol_link: 0`）を出力する。
 - 出力設定の変更だけでは、プレビューの音高計算を再実行しない。
 
 ## 入力エラーの確認
