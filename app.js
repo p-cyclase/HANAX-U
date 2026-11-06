@@ -72,10 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let mappingHistory = readStoredValue(MAPPING_HISTORY_STORAGE_KEY, {});
 
     restoreSavedSettings();
-    normalizePhraseThresholdInputs();
-
-    phraseResetThresholdInput.addEventListener('input', () => normalizePhraseThresholdInputs('reset'));
-    phraseCommandThresholdInput.addEventListener('input', () => normalizePhraseThresholdInputs('command'));
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -223,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function regenerateFromSettings(processingStartedAt) {
         try {
             await waitForNextFrame();
-            normalizePhraseThresholdInputs();
             generatedNoteSequence = generateNoteSequence(importedProsodyProject, {
                 portamentoLengthMs: parseInt(portamentoInput.value, 10) || 60,
                 bpm: parseInt(bpmInput.value, 10) || 200,
@@ -705,7 +700,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveSettings() {
-        normalizePhraseThresholdInputs();
         writeStoredValue(SETTINGS_STORAGE_KEY, {
             inputs: {
                 bpm: bpmInput.value,
@@ -726,18 +720,6 @@ document.addEventListener('DOMContentLoaded', () => {
             trackNameFormat: getTrackNameFormat(),
             includeLab: zipContentInput.checked
         });
-    }
-
-    function normalizePhraseThresholdInputs(changedInput) {
-        const reset = parseFloat(phraseResetThresholdInput.value);
-        const command = parseFloat(phraseCommandThresholdInput.value);
-        if (!Number.isFinite(reset) || !Number.isFinite(command) || reset <= command) return;
-
-        if (changedInput === 'command') {
-            phraseResetThresholdInput.value = String(command);
-        } else {
-            phraseCommandThresholdInput.value = String(reset);
-        }
     }
 
     function getMappingHistory(speakerId) {

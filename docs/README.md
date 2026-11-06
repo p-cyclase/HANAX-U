@@ -25,6 +25,6 @@
 - [動画制作ツールとの連携状況](video-integration-status.md)：確認済み・未検証の環境に関する記録。
 - [通常変換テストデータ仕様](normal-conversion-test-fixtures.md)
 - [公開前テスト計画](pre-release-test-plan.md)
-- [フレーズ境界しきい値方式：実装・評価計画](phrase-boundary-threshold-evaluation-plan.md)
+- [フレーズ境界しきい値方式：実装・評価記録](phrase-boundary-threshold-evaluation-plan.md)
 - [開発ロードマップ](development-roadmap.md)
 - [HANAX-U コンセプト](hanax-u-concept.md)

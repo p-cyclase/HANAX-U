@@ -117,10 +117,11 @@ function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0
     phraseBoundaries.slice(1).forEach(boundary => {
         const phraseSemitones = phraseSemitonesAt(activePhraseCommands, boundary.time);
         if (phraseSemitones <= phraseResetThresholdSemitones) {
-            activePhraseCommands = [];
+            // A reset restarts the following mora exactly like a new line:
+            // discard inherited state and place the initial phrase command.
+            activePhraseCommands = [{ time: boundary.time, weight: 1 }];
             resetBoundaryTimes.push(boundary.time);
-        }
-        if (phraseSemitones <= phraseCommandThresholdSemitones) {
+        } else if (phraseSemitones <= phraseCommandThresholdSemitones) {
             activePhraseCommands = [...activePhraseCommands, { time: boundary.time, weight: 1 }];
         }
         phraseSegments.push({ startTime: boundary.time, commands: activePhraseCommands });
@@ -200,10 +201,9 @@ function resolvePitchOptions(options = {}) {
     const phraseResetThresholdSemitones = Number.isFinite(options.phraseResetThresholdSemitones)
         ? Math.max(0, options.phraseResetThresholdSemitones)
         : 1.5;
-    const requestedCommandThreshold = Number.isFinite(options.phraseCommandThresholdSemitones)
+    const phraseCommandThresholdSemitones = Number.isFinite(options.phraseCommandThresholdSemitones)
         ? Math.max(0, options.phraseCommandThresholdSemitones)
         : 2.5;
-    const phraseCommandThresholdSemitones = Math.max(phraseResetThresholdSemitones, requestedCommandThreshold);
     return {
         bpm, portamentoLengthMs, alpha, beta, fbHz, phraseMagnitude, accentMagnitude,
         phraseCommandThresholdSemitones, phraseResetThresholdSemitones
