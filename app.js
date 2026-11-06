@@ -13,8 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const alphaInput = document.getElementById('alphaInput');
     const betaInput = document.getElementById('betaInput');
     const phraseMagnitudeInput = document.getElementById('phraseMagnitudeInput');
+    const phraseResetThresholdInput = document.getElementById('phraseResetThresholdInput');
     const phraseCommandThresholdInput = document.getElementById('phraseCommandThresholdInput');
-    const terminalResetThresholdInput = document.getElementById('terminalResetThresholdInput');
     const accentMagnitudeInput = document.getElementById('accentMagnitudeInput');
     const fbInput = document.getElementById('fbInput');
     const genInput = document.getElementById('genInput');
@@ -72,6 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let mappingHistory = readStoredValue(MAPPING_HISTORY_STORAGE_KEY, {});
 
     restoreSavedSettings();
+    normalizePhraseThresholdInputs();
+
+    phraseResetThresholdInput.addEventListener('input', () => normalizePhraseThresholdInputs('reset'));
+    phraseCommandThresholdInput.addEventListener('input', () => normalizePhraseThresholdInputs('command'));
 
     // File Drop Events
     dropzone.addEventListener('click', () => fileInput.click());
@@ -219,14 +223,15 @@ document.addEventListener('DOMContentLoaded', () => {
     async function regenerateFromSettings(processingStartedAt) {
         try {
             await waitForNextFrame();
+            normalizePhraseThresholdInputs();
             generatedNoteSequence = generateNoteSequence(importedProsodyProject, {
                 portamentoLengthMs: parseInt(portamentoInput.value, 10) || 60,
                 bpm: parseInt(bpmInput.value, 10) || 200,
                 alpha: parseFloat(alphaInput.value) || 3.0,
                 beta: parseFloat(betaInput.value) || 20.0,
                 phraseMagnitude: Number.isFinite(parseFloat(phraseMagnitudeInput.value)) ? parseFloat(phraseMagnitudeInput.value) : 0.35,
+                phraseResetThresholdSemitones: Number.isFinite(parseFloat(phraseResetThresholdInput.value)) ? parseFloat(phraseResetThresholdInput.value) : 1.5,
                 phraseCommandThresholdSemitones: Number.isFinite(parseFloat(phraseCommandThresholdInput.value)) ? parseFloat(phraseCommandThresholdInput.value) : 2.5,
-                terminalResetThresholdSemitones: Number.isFinite(parseFloat(terminalResetThresholdInput.value)) ? parseFloat(terminalResetThresholdInput.value) : 2.5,
                 accentMagnitude: Number.isFinite(parseFloat(accentMagnitudeInput.value)) ? parseFloat(accentMagnitudeInput.value) : 0.45,
                 fbHz: parseFloat(fbInput.value) || 150.0
             });
@@ -672,8 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
             portamentoLengthMs: portamentoInput,
             fbHz: fbInput,
             phraseMagnitude: phraseMagnitudeInput,
+            phraseResetThresholdSemitones: phraseResetThresholdInput,
             phraseCommandThresholdSemitones: phraseCommandThresholdInput,
-            terminalResetThresholdSemitones: terminalResetThresholdInput,
             alpha: alphaInput,
             accentMagnitude: accentMagnitudeInput,
             beta: betaInput,
@@ -700,14 +705,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveSettings() {
+        normalizePhraseThresholdInputs();
         writeStoredValue(SETTINGS_STORAGE_KEY, {
             inputs: {
                 bpm: bpmInput.value,
                 portamentoLengthMs: portamentoInput.value,
                 fbHz: fbInput.value,
                 phraseMagnitude: phraseMagnitudeInput.value,
+                phraseResetThresholdSemitones: phraseResetThresholdInput.value,
                 phraseCommandThresholdSemitones: phraseCommandThresholdInput.value,
-                terminalResetThresholdSemitones: terminalResetThresholdInput.value,
                 alpha: alphaInput.value,
                 accentMagnitude: accentMagnitudeInput.value,
                 beta: betaInput.value,
@@ -720,6 +726,18 @@ document.addEventListener('DOMContentLoaded', () => {
             trackNameFormat: getTrackNameFormat(),
             includeLab: zipContentInput.checked
         });
+    }
+
+    function normalizePhraseThresholdInputs(changedInput) {
+        const reset = parseFloat(phraseResetThresholdInput.value);
+        const command = parseFloat(phraseCommandThresholdInput.value);
+        if (!Number.isFinite(reset) || !Number.isFinite(command) || reset <= command) return;
+
+        if (changedInput === 'command') {
+            phraseResetThresholdInput.value = String(command);
+        } else {
+            phraseCommandThresholdInput.value = String(reset);
+        }
     }
 
     function getMappingHistory(speakerId) {
@@ -1171,8 +1189,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alpha: alphaInput.value,
             beta: betaInput.value,
             phraseMagnitude: phraseMagnitudeInput.value,
+            phraseResetThresholdSemitones: phraseResetThresholdInput.value,
             phraseCommandThresholdSemitones: phraseCommandThresholdInput.value,
-            terminalResetThresholdSemitones: terminalResetThresholdInput.value,
             accentMagnitude: accentMagnitudeInput.value,
             fbHz: fbInput.value,
             gen: genInput.value,
