@@ -68,24 +68,24 @@
                             <input type="number" id="phraseMagnitudeInput" value="0.35" min="0" max="2" step="0.05">
                         </div>
                         <div class="option-group">
-                            <div class="option-copy"><label for="alphaInput">フレーズ減衰（α）</label><p>文節全体の音高変化が落ち着く速さです。大きいほど早く減衰します。</p></div>
-                            <input type="number" id="alphaInput" value="3.0" min="0.5" max="10.0" step="0.5">
-                        </div>
-                        <div class="option-group">
-                            <div class="option-copy"><label for="phraseResetThresholdInput">フレーズ状態をリセットする下限（半音）</label><p>フレーズ境界のフレーズ成分がこの値以下の場合、過去のフレーズ・アクセント状態をリセットします。比較実装中の暫定設定です。</p></div>
-                            <input type="number" id="phraseResetThresholdInput" value="1.5" min="0" max="12" step="0.5">
-                        </div>
-                        <div class="option-group">
-                            <div class="option-copy"><label for="phraseCommandThresholdInput">フレーズ指令を追加する下限（半音）</label><p>フレーズ境界のフレーズ成分がこの値以下の場合、新しいフレーズ指令を追加します。リセットする下限以上の値を指定してください。</p></div>
-                            <input type="number" id="phraseCommandThresholdInput" value="2.5" min="0" max="12" step="0.5">
-                        </div>
-                        <div class="option-group">
                             <div class="option-copy"><label for="accentMagnitudeInput">アクセント成分の強さ</label><p>アクセント位置から生じる音高変化の大きさです。</p></div>
                             <input type="number" id="accentMagnitudeInput" value="0.45" min="0" max="2" step="0.05">
                         </div>
                         <div class="option-group">
+                            <div class="option-copy"><label for="alphaInput">フレーズ減衰（α）</label><p>文節全体の音高変化が落ち着く速さです。大きいほど早く減衰します。</p></div>
+                            <input type="number" id="alphaInput" value="3.0" min="0.5" max="10.0" step="0.5">
+                        </div>
+                        <div class="option-group">
                             <div class="option-copy"><label for="betaInput">アクセント応答（β）</label><p>アクセントによる立ち上がりの鋭さです。大きいほど素早く変化します。</p></div>
                             <input type="number" id="betaInput" value="20.0" min="5.0" max="50.0" step="1.0">
+                        </div>
+                        <div class="option-group">
+                            <div class="option-copy"><label for="phraseCommandThresholdInput">フレーズ指令追加閾値（半音）</label><p>フレーズ境界のフレーズ成分がこの値以下の場合、新しいフレーズ指令を追加します。フレーズ成分リセット閾値以上の値を指定してください。</p></div>
+                            <input type="number" id="phraseCommandThresholdInput" value="2.5" min="0" max="12" step="0.5">
+                        </div>
+                        <div class="option-group">
+                            <div class="option-copy"><label for="phraseResetThresholdInput">フレーズ成分リセット閾値（半音）</label><p>フレーズ境界のフレーズ成分がこの値以下の場合、過去のフレーズ・アクセント状態をリセットします。</p></div>
+                            <input type="number" id="phraseResetThresholdInput" value="1.5" min="0" max="12" step="0.5">
                         </div>
                     </div>
                 </details>
