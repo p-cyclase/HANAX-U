@@ -62,7 +62,7 @@ function fujisakiAccentResponse(t, beta = 20.0, gamma = 0.9) {
  * Computes Fujisaki F0 fundamental frequency for each mora in line.
  */
 function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0, fbHz = 150.0,
-    phraseMagnitude = 0.35, accentMagnitude = 0.45) {
+    phraseMagnitude = 0.35, accentMagnitude = 0.45, phraseCommandThresholdSemitones = 2.5) {
     const accentPhrases = line.accent_phrases || [];
     const moraDurationSec = (60.0 / Number(bpm)) * 0.5;
 
@@ -110,27 +110,32 @@ function computeFujisakiPitchesForLine(line, bpm = 180, alpha = 3.0, beta = 20.0
     const apMag = phraseMagnitude;
     const aaMag = accentMagnitude;
 
-    // Commas retain the preceding phrase component up to one phrase-command peak.
-    // Terminal marks start a fresh prosody segment, just like a new utterance.
+    // At commas, add a phrase command only when the phrase-only baseline of
+    // the next voiced mora is below the configured threshold. Terminal marks
+    // always start a fresh prosody segment, just like a new utterance.
     const phraseSegments = [];
     let activePhraseCommands = [{ time: phraseBoundaries[0].time, weight: 1 }];
     phraseSegments.push({ startTime: phraseBoundaries[0].time, commands: activePhraseCommands });
-    const singlePhrasePeak = apMag * alpha / Math.E;
+    const semitonePerNaturalLog = 12 / Math.LN2;
 
     phraseBoundaries.slice(1).forEach(boundary => {
         if (boundary.type === "reset") {
             activePhraseCommands = [{ time: boundary.time, weight: 1 }];
         } else {
-            const previousPhraseValue = activePhraseCommands.reduce((sum, command) => (
-                sum + apMag * command.weight * fujisakiPhraseResponse(boundary.time - command.time, alpha)
-            ), 0);
-            const carryRate = previousPhraseValue > singlePhrasePeak && singlePhrasePeak > 0
-                ? singlePhrasePeak / previousPhraseValue
-                : 1;
-            activePhraseCommands = [
-                ...activePhraseCommands.map(command => ({ ...command, weight: command.weight * carryRate })),
-                { time: boundary.time, weight: 1 }
-            ];
+            const nextVoicedMora = timelineMoras.find(item => (
+                item.startTime >= boundary.time && !isRestText(item.text)
+            ));
+            if (nextVoicedMora) {
+                const evaluationTime = nextVoicedMora.startTime + (moraDurationSec / 2.0);
+                const phraseValue = activePhraseCommands.reduce((sum, command) => (
+                    sum + apMag * command.weight
+                        * fujisakiPhraseResponse(evaluationTime - command.time, alpha)
+                ), 0);
+                const phraseSemitones = phraseValue * semitonePerNaturalLog;
+                if (phraseSemitones < phraseCommandThresholdSemitones) {
+                    activePhraseCommands = [...activePhraseCommands, { time: boundary.time, weight: 1 }];
+                }
+            }
         }
         phraseSegments.push({ startTime: boundary.time, commands: activePhraseCommands });
     });
@@ -195,7 +200,10 @@ function resolvePitchOptions(options = {}) {
     const fbHz = options.fbHz !== undefined ? options.fbHz : 150.0;
     const phraseMagnitude = Number.isFinite(options.phraseMagnitude) ? Math.max(0, options.phraseMagnitude) : 0.35;
     const accentMagnitude = Number.isFinite(options.accentMagnitude) ? Math.max(0, options.accentMagnitude) : 0.45;
-    return { bpm, portamentoLengthMs, alpha, beta, fbHz, phraseMagnitude, accentMagnitude };
+    const phraseCommandThresholdSemitones = Number.isFinite(options.phraseCommandThresholdSemitones)
+        ? Math.max(0, options.phraseCommandThresholdSemitones)
+        : 2.5;
+    return { bpm, portamentoLengthMs, alpha, beta, fbHz, phraseMagnitude, accentMagnitude, phraseCommandThresholdSemitones };
 }
 
 function resolveExportOptions(options = {}) {
@@ -264,7 +272,7 @@ function generateNoteSequence(prosodyProject, options = {}) {
         const partName = line.text || `Line ${idx + 1}`;
         const notes = buildNotesForDialogue(line, pitchOptions.portamentoLengthMs, pitchOptions.bpm,
             pitchOptions.alpha, pitchOptions.beta, pitchOptions.fbHz, pitchOptions.phraseMagnitude,
-            pitchOptions.accentMagnitude, pitchStats);
+            pitchOptions.accentMagnitude, pitchOptions.phraseCommandThresholdSemitones, pitchStats);
         totalNotesCount += notes.length;
         const partDuration = notes.length > 0 ? (notes[notes.length - 1].position + notes[notes.length - 1].duration) : 0;
         noteParts.push({ name: partName, duration: partDuration, notes });
@@ -582,10 +590,10 @@ function makeAccentPhrasesFromText(text) {
  * Builds array of notes for a dialogue line using Fujisaki Model Pitch Engine.
  */
 function buildNotesForDialogue(line, portamentoLengthMs, bpm, alpha, beta, fbHz, phraseMagnitude,
-    accentMagnitude, pitchStats) {
+    accentMagnitude, phraseCommandThresholdSemitones, pitchStats) {
     const accentPhrases = line.accent_phrases || [];
     const fujisakiResults = computeFujisakiPitchesForLine(line, bpm, alpha, beta, fbHz,
-        phraseMagnitude, accentMagnitude);
+        phraseMagnitude, accentMagnitude, phraseCommandThresholdSemitones);
     const f0Values = fujisakiResults.map(r => r.f0Hz);
     const moraEvents = accentPhrases.flatMap(phrase => phrase.moras || []);
 
