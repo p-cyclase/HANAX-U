@@ -23,6 +23,7 @@
 - [変換ログ設計](logging-design.md)
 - [USTX整頓モード仕様](ustx-organization-mode-specification.md)
 - [動画制作ツールとの連携状況](video-integration-status.md)：確認済み・未検証の環境に関する記録。
+- [外部ツール互換性テスト方針](external-tool-compatibility-policy.md)：USTXを直接扱う外部変換ツールへの対応範囲と、努力目標としての確認手順。
 - [通常変換テストデータ仕様](normal-conversion-test-fixtures.md)
 - [公開前テスト計画](pre-release-test-plan.md)
 - [フレーズ境界しきい値方式：実装・評価記録](phrase-boundary-threshold-evaluation-plan.md)
