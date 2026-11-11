@@ -4,6 +4,7 @@ material/
 
 # Local scratch work
 scratch/
+tmp/
 
 # OpenUtau autosave files for tracked test projects
 test/*-autosave.ustx
