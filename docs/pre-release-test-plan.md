@@ -70,7 +70,8 @@
 - [ ] 「.ustx をダウンロード」でUSTXファイルを取得できる。
 - [ ] 「セリフ付きZIPをダウンロード」でZIPファイルを取得できる。
 - [ ] ZIPには、USTX、`Export/`内のセリフTXT、`Log/`内の変換ログが含まれる。
-- [ ] ファイル名形式の3種類（連番のみ／連番_セリフ／連番_singer_セリフ）が出力名へ反映される。
+- [ ] ファイル名形式の4種類（連番のみ／連番_singer／連番_セリフ／連番_singer_セリフ）が出力名へ反映される。UI上の並びもこの順である。
+- [ ] 通常変換では、入力ファイル名から拡張子を除いた文字列が、出力USTXのファイル名、USTX内部の`name`、ZIP内TXT・LABの接頭辞に共通して使われる。
 - [ ] 通常変換・USTX整頓モードのどちらでも、[ファイル命名規則](file-naming-rules.md)どおりの文字数上限・相対パスのsinger名・使用できない文字の整形が適用される。
 - [ ] フラグ設定（gender、breath、lowpass、normalize、modulation）がUSTXへ反映される。
 - [ ] 話者マッピング（singer、phonemizer、renderer）が、ダウンロード時のUSTXへ反映される。
@@ -93,6 +94,7 @@
 - [ ] `resync_success.ustx`から整頓ZIPを出力できる。
 - [ ] 出力ZIPには、再命名済みUSTX、`Export/`内のTXT、LAB有効時のLAB、`Log/`内のログが含まれる。
 - [ ] `resync_success.ustx`の入力USTXと出力USTXをYAMLとして構造比較し、各トラックの`track_name`以外の全フィールドが一致する。YAMLの整形・キー順・改行コードの差は比較対象にしない。
+- [ ] 整頓モードでは、入力USTX内部の`name`を変更しない。出力ZIP・再出力USTX・TXT・LABの接頭辞には、入力ファイル名から拡張子を除いた文字列を使う。
 - [ ] トラック順に3桁ゼロ埋め連番を振り直し、選択中のファイル名形式が出力USTXのトラック名、TXT、LABへ反映される。
 - [ ] singerあり・なしのトラックで、[ファイル命名規則](file-naming-rules.md)に従うsinger部分を確認できる。
 - [ ] 入力USTXのsingerが空欄または空白だけの場合は、どちらも代替文字列`singer`を使って命名される。

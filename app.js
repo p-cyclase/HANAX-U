@@ -294,7 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ...exportNoteSequenceToUstx(generatedNoteSequence, {
                 expressionValues,
                 trackNameFormat: getTrackNameFormat(),
-                singerMappings: Object.fromEntries(singerMappings)
+                singerMappings: Object.fromEntries(singerMappings),
+                projectName: getInputBaseName(currentFile)
             }),
             stats: generatedNoteSequence.stats
         };
@@ -397,6 +398,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function getFileExtension(fileName) {
         const match = /\.[^.]+$/.exec(fileName);
         return match ? match[0].toLowerCase() : '';
+    }
+
+    function getInputBaseName(file) {
+        const baseName = typeof file?.name === 'string'
+            ? file.name.replace(/\.[^/.]+$/, '').trim()
+            : '';
+        return baseName || 'HANAX-U';
     }
 
     function getArchiveUncompressedSize(zip) {
@@ -815,7 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!generatedNoteSequence || !currentFile) return;
         updateExportResult();
 
-        const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+        const baseName = getInputBaseName(currentFile);
         const outputFileName = `${baseName}.ustx`;
         const blob = new Blob([convertedResult.ustxYaml], { type: 'text/yaml;charset=utf-8;' });
 
@@ -837,7 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             updateExportResult();
             const includeLab = zipContentInput.checked;
-            const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+            const baseName = getInputBaseName(currentFile);
             const zip = new JSZip();
             const labOutputs = [];
             zip.file(`${baseName}.ustx`, convertedResult.ustxYaml);
@@ -877,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadZipBtn.disabled = true;
         try {
             const includeLab = zipContentInput.checked;
-            const baseName = currentFile.name.replace(/\.[^/.]+$/, '');
+            const baseName = getInputBaseName(currentFile);
             const output = buildResynchronizedOutput(resyncProject, getTrackNameFormat(), includeLab);
             const zip = new JSZip();
             zip.file(`${baseName}.ustx`, output.ustxYaml);

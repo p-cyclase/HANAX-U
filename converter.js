@@ -296,6 +296,9 @@ function generateNoteSequence(prosodyProject, options = {}) {
 function exportNoteSequenceToUstx(noteSequence, options = {}) {
     const { bpm } = noteSequence.options;
     const exportOptions = resolveExportOptions(options);
+    const projectName = typeof options.projectName === "string" && options.projectName.trim()
+        ? options.projectName.trim()
+        : "HANAX-U";
     const tracks = noteSequence.noteParts.map((_, idx) => {
         const mapping = resolveSingerMapping(noteSequence.lines[idx], exportOptions.singerMappings);
         const trackName = createTrackName(idx, noteSequence.lines[idx], mapping, exportOptions.trackNameFormat);
@@ -323,7 +326,7 @@ function exportNoteSequenceToUstx(noteSequence, options = {}) {
     }));
 
     const ustxDict = {
-        name: "HANAX-U",
+        name: projectName,
         comment: "",
         output_dir: "Vocal",
         cache_dir: "UCache",
