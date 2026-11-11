@@ -230,7 +230,7 @@ function resolveExportOptions(options = {}) {
     const singerMappings = options.singerMappings && typeof options.singerMappings === "object"
         ? options.singerMappings
         : {};
-    const trackNameFormat = ["number", "number-text", "number-singer-text"].includes(options.trackNameFormat)
+    const trackNameFormat = ["number", "number-singer", "number-text", "number-singer-text"].includes(options.trackNameFormat)
         ? options.trackNameFormat
         : "number";
     return { expressionValues, normalize: expressionValues.norm, singerMappings, trackNameFormat };

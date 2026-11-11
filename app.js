@@ -1162,6 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { stats, ustxDict } = convertedResult;
         const trackNameFormatLabels = {
             number: '連番のみ',
+            'number-singer': '連番_singer',
             'number-text': '連番_セリフ',
             'number-singer-text': '連番_singer_セリフ'
         };

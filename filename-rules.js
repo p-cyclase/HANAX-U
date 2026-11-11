@@ -34,12 +34,14 @@ function createOutputTrackName(index, options = {}) {
     const ordinal = String(index + 1).padStart(FILE_NAME_RULES.trackNumberDigits, '0');
     if (format === 'number') return ordinal;
 
-    const textFragment = filenameFragment(text, FILE_NAME_RULES.textMaxLength);
-    if (format === 'number-text') return textFragment ? ordinal + '_' + textFragment : ordinal;
-
     const singerFragment = singerFilenameFragment(singer);
     const resolvedSinger = singerFragment
         || filenameFragment(fallbackSinger, FILE_NAME_RULES.singerMaxLength)
         || 'singer';
+    if (format === 'number-singer') return ordinal + '_' + resolvedSinger;
+
+    const textFragment = filenameFragment(text, FILE_NAME_RULES.textMaxLength);
+    if (format === 'number-text') return textFragment ? ordinal + '_' + textFragment : ordinal;
+
     return textFragment ? ordinal + '_' + resolvedSinger + '_' + textFragment : ordinal + '_' + resolvedSinger;
 }
